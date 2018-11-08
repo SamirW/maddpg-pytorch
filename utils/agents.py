@@ -46,6 +46,12 @@ class DDPGAgent(object):
         if not self.discrete_action:
             self.exploration.reset()
 
+    def reset(self):
+        self.policy.randomize()
+        self.critic.randomize()
+        hard_update(self.target_policy, self.policy)
+        hard_update(self.target_critic, self.critic)
+
     def scale_noise(self, scale):
         if self.discrete_action:
             self.exploration = scale

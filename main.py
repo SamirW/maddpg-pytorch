@@ -93,6 +93,13 @@ def run(config):
                                       for acsp in env.action_space])
     t = 0
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
+        if ep_i == 10000:
+            print("Randomizing")
+            for i, agent in enumerate(maddpg.agents):
+                if i == 0:
+                    continue
+                agent.reset()
+
         print("Episodes %i-%i of %i" % (ep_i + 1,
                                         ep_i + 1 + config.n_rollout_threads,
                                         config.n_episodes))
@@ -182,7 +189,7 @@ if __name__ == '__main__':
                         default=1024, type=int,
                         help="Batch size for model training")
     parser.add_argument("--distill_freq",
-                        default=5000, type=int,
+                        default=99999, type=int,
                         help="Distilling frequency")
     parser.add_argument("--distill_rollouts",
                         default=50, type=int,
