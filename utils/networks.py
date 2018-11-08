@@ -44,3 +44,8 @@ class MLPNetwork(nn.Module):
         h2 = self.nonlin(self.fc2(h1))
         out = self.out_fn(self.fc3(h2))
         return out
+
+    def randomize(self):
+        nn.init.xavier_uniform_(self.fc1.weight)
+        nn.init.xavier_uniform_(self.fc2.weight)
+        nn.init.xavier_uniform_(self.fc3.weight)

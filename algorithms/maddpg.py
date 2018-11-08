@@ -186,7 +186,7 @@ class MADDPG(object):
             soft_update(a.target_policy, a.policy, self.tau)
         self.niter += 1
 
-    def distill(self, replay_buffer, temperature = 0.2, tau=0.1):
+    def distill(self, replay_buffer, temperature = 0.2, tau=0.2):
         sample = replay_buffer.sample(replay_buffer.filled_i, to_gpu=False)
         obs, acs, rews, next_obs, dones = sample
 
