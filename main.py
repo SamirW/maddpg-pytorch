@@ -101,7 +101,8 @@ def run(config):
             for i, agent in enumerate(maddpg.agents):
                 if i == 0:
                     continue
-                agent.reset()
+                agent.reset()            
+            replay_buffer.reset()
 
         # print every so often
         if (ep_i+1) % 100 == 0:
@@ -163,10 +164,9 @@ def run(config):
 
         # distill every so often
         if (ep_i+1) % config.distill_freq == 0:
+            distill_replay_buffer.reset()
             rollout(num_rollouts=config.distill_rollouts)
             maddpg.distill(distill_replay_buffer)
-            replay_buffer.reset()
-            distill_replay_buffer.reset()
 
     maddpg.save(str(run_dir / 'model.pt'))
     env.close()
