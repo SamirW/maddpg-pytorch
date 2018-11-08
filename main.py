@@ -20,6 +20,7 @@ def make_parallel_env(env_id, n_rollout_threads, seed, discrete_action):
             env = make_env(env_id, discrete_action=discrete_action)
             env.seed(seed + rank * 1000)
             np.random.seed(seed + rank * 1000)
+            print(type(env))
             return env
         return init_env
     if n_rollout_threads == 1:
@@ -41,7 +42,7 @@ def run(config):
             curr_run = 'run%i' % (max(exst_run_nums) + 1)
     run_dir = model_dir / curr_run
     log_dir = run_dir / 'logs'
-    os.makedirs(log_dir)
+    os.makedirs(str(log_dir))
     logger = SummaryWriter(str(log_dir))
 
     torch.manual_seed(config.seed)
@@ -106,9 +107,9 @@ def run(config):
             logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
 
         if ep_i % config.save_interval < config.n_rollout_threads:
-            os.makedirs(run_dir / 'incremental', exist_ok=True)
-            maddpg.save(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1)))
-            maddpg.save(run_dir / 'model.pt')
+            os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
+            maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
+            maddpg.save(str(run_dir / 'model.pt'))
 
     maddpg.save(run_dir / 'model.pt')
     env.close()
