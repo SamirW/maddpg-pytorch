@@ -111,7 +111,7 @@ def run(config):
             maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
             maddpg.save(str(run_dir / 'model.pt'))
 
-    maddpg.save(run_dir / 'model.pt')
+    maddpg.save(str(run_dir / 'model.pt'))
     env.close()
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
