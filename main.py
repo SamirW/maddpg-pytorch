@@ -28,7 +28,34 @@ def make_parallel_env(env_id, n_rollout_threads, seed, discrete_action):
     else:
         return SubprocVecEnv([get_env_fn(i) for i in range(n_rollout_threads)])
 
+
 def run(config):
+
+    def rollout(num_rollouts=50):
+        for ep_i in range(0, num_rollouts, config.n_rollout_threads):
+            obs = env.reset()
+            maddpg.prep_rollouts(device='cpu')
+
+            # No exploration
+            maddpg.scale_noise(0)
+            maddpg.reset_noise()
+
+            for et_i in range(config.episode_length):
+                # rearrange observations to be per agent, and convert to torch Variable
+                torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
+                                      requires_grad=False)
+                             for i in range(maddpg.nagents)]
+                # get actions as torch Variables
+                torch_agent_actions = maddpg.step(torch_obs, explore=True)
+                # convert actions to numpy arrays
+                agent_actions = [ac.data.numpy() for ac in torch_agent_actions]
+                # rearrange actions to be per environment
+                actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
+                next_obs, rewards, dones, infos = env.step(actions)
+
+                distill_replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
+                obs = next_obs
+
     model_dir = Path('./models') / config.env_id / config.model_name
     if not model_dir.exists():
         curr_run = 'run1'
@@ -60,6 +87,11 @@ def run(config):
                                  [obsp.shape[0] for obsp in env.observation_space],
                                  [acsp.shape[0] if isinstance(acsp, Box) else acsp.n
                                   for acsp in env.action_space])
+
+    distill_replay_buffer = ReplayBuffer(config.distill_rollouts*config.episode_length, maddpg.nagents,
+                                     [obsp.shape[0] for obsp in env.observation_space],
+                                     [acsp.shape[0] if isinstance(acsp, Box) else acsp.n
+                                      for acsp in env.action_space])
     t = 0
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
         print("Episodes %i-%i of %i" % (ep_i + 1,
@@ -74,6 +106,7 @@ def run(config):
         maddpg.reset_noise()
 
         for et_i in range(config.episode_length):
+
             # rearrange observations to be per agent, and convert to torch Variable
             torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
                                   requires_grad=False)
@@ -85,6 +118,10 @@ def run(config):
             # rearrange actions to be per environment
             actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
             next_obs, rewards, dones, infos = env.step(actions)
+
+            if ep_i+1 % config.display_every == 0:
+                env.render()
+
             replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
             obs = next_obs
             t += config.n_rollout_threads
@@ -106,10 +143,16 @@ def run(config):
         for a_i, a_ep_rew in enumerate(ep_rews):
             logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
 
+        logger.add_scalar('joint/mean_episode_rewareds', np.sum(ep_rews), ep_i)
+
         if ep_i % config.save_interval < config.n_rollout_threads:
             os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
             maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
             maddpg.save(str(run_dir / 'model.pt'))
+
+        # distill every so often
+        if (ep_i+1) % config.distill_freq == 0:
+            rollout(num_rollouts=config.distill_rollouts)
 
     maddpg.save(str(run_dir / 'model.pt'))
     env.close()
@@ -126,6 +169,9 @@ if __name__ == '__main__':
     parser.add_argument("--seed",
                         default=1, type=int,
                         help="Random seed")
+    parser.add_argument("--display_every",
+                        default=999999, type=int,
+                        help="Display frequency")
     parser.add_argument("--n_rollout_threads", default=1, type=int)
     parser.add_argument("--n_training_threads", default=6, type=int)
     parser.add_argument("--buffer_length", default=int(1e6), type=int)
@@ -135,6 +181,12 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size",
                         default=1024, type=int,
                         help="Batch size for model training")
+    parser.add_argument("--distill_freq",
+                        default=5000, type=int,
+                        help="Distilling frequency")
+    parser.add_argument("--distill_rollouts",
+                        default=50, type=int,
+                        help="Distilling rollouts for data collection")
     parser.add_argument("--n_exploration_eps", default=25000, type=int)
     parser.add_argument("--init_noise_scale", default=0.3, type=float)
     parser.add_argument("--final_noise_scale", default=0.0, type=float)

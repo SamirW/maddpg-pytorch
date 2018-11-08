@@ -22,18 +22,18 @@ def run(config):
         gif_path = model_path.parent / 'gifs'
         gif_path.mkdir(exist_ok=True)
 
-    maddpg = MADDPG.init_from_save(model_path)
+    maddpg = MADDPG.init_from_save(str(model_path))
     env = make_env(config.env_id, discrete_action=maddpg.discrete_action)
     maddpg.prep_rollouts(device='cpu')
     ifi = 1 / config.fps  # inter-frame interval
 
     for ep_i in range(config.n_episodes):
         print("Episode %i of %i" % (ep_i + 1, config.n_episodes))
-        obs = env.reset()
+        obs = env._reset()
         if config.save_gifs:
             frames = []
             frames.append(env.render('rgb_array')[0])
-        env.render('human')
+        env._render('human')
         for t_i in range(config.episode_length):
             calc_start = time.time()
             # rearrange observations to be per agent, and convert to torch Variable
@@ -44,14 +44,14 @@ def run(config):
             torch_actions = maddpg.step(torch_obs, explore=False)
             # convert actions to numpy arrays
             actions = [ac.data.numpy().flatten() for ac in torch_actions]
-            obs, rewards, dones, infos = env.step(actions)
+            obs, rewards, dones, infos = env._step(actions)
             if config.save_gifs:
                 frames.append(env.render('rgb_array')[0])
             calc_end = time.time()
             elapsed = calc_end - calc_start
             if elapsed < ifi:
                 time.sleep(ifi - elapsed)
-            env.render('human')
+            env._render('human')
         if config.save_gifs:
             gif_num = 0
             while (gif_path / ('%i_%i.gif' % (gif_num, ep_i))).exists():
