@@ -1,8 +1,11 @@
 import torch
 import torch.nn.functional as F
+import numpy as np
+from torch import Tensor
+from torch.autograd import Variable
 from gym.spaces import Box, Discrete
 from utils.networks import MLPNetwork
-from utils.misc import soft_update, average_gradients, onehot_from_logits, gumbel_softmax
+from utils.misc import soft_update, average_gradients, onehot_from_logits, gumbel_softmax, batch_gumbel_softmax
 from utils.agents import DDPGAgent
 
 MSELoss = torch.nn.MSELoss()
@@ -35,6 +38,9 @@ class MADDPG(object):
                                  hidden_dim=hidden_dim,
                                  **params)
                        for params in agent_init_params]
+        self.distilled_agent = DDPGAgent(lr=lr, discrete_action=discrete_action,
+                                 hidden_dim=hidden_dim,
+                                 **agent_init_params[0])
         self.agent_init_params = agent_init_params
         self.gamma = gamma
         self.tau = tau
@@ -179,6 +185,31 @@ class MADDPG(object):
             soft_update(a.target_critic, a.critic, self.tau)
             soft_update(a.target_policy, a.policy, self.tau)
         self.niter += 1
+
+    def distill(self, replay_buffer, temperature = 0.2, tau=0.1):
+        sample = replay_buffer.sample(replay_buffer.filled_i, to_gpu=False)
+        obs, acs, rews, next_obs, dones = sample
+
+        self.distilled_agent.policy_optimizer.zero_grad()
+
+        all_pol_logits = []
+        distilled_logits = []
+        for pi, ob in zip(self.policies, obs):
+            all_pol_logits.append(pi(ob))
+            distilled_logits.append(self.distilled_agent.policy(ob))
+
+        losses = []
+        for i in range(self.nagents):
+            losses.append(F.softmax(all_pol_logits[i]/temperature, dim=1)*torch.log(\
+                F.softmax(all_pol_logits[i]/temperature, dim=1)/\
+                F.softmax(distilled_logits[i], dim=1)))
+
+        losses = torch.stack(losses).sum()
+        losses.backward()
+        self.distilled_agent.policy_optimizer.step()
+
+        for a in self.agents:
+            soft_update(self.distilled_agent.policy, a.policy, tau)
 
     def prep_training(self, device='gpu'):
         for a in self.agents:
