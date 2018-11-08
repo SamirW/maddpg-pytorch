@@ -134,7 +134,7 @@ class MADDPG(object):
         vf_loss.backward()
         if parallel:
             average_gradients(curr_agent.critic)
-        torch.nn.utils.clip_grad_norm(curr_agent.critic.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm_(curr_agent.critic.parameters(), 0.5)
         curr_agent.critic_optimizer.step()
 
         curr_agent.policy_optimizer.zero_grad()
@@ -168,7 +168,7 @@ class MADDPG(object):
         pol_loss.backward()
         if parallel:
             average_gradients(curr_agent.policy)
-        torch.nn.utils.clip_grad_norm(curr_agent.policy.parameters(), 0.5)
+        torch.nn.utils.clip_grad_norm_(curr_agent.policy.parameters(), 0.5)
         curr_agent.policy_optimizer.step()
         if logger is not None:
             logger.add_scalars('agent%i/losses' % agent_i,
@@ -186,7 +186,7 @@ class MADDPG(object):
             soft_update(a.target_policy, a.policy, self.tau)
         self.niter += 1
 
-    def distill(self, replay_buffer, temperature = 0.2, tau=0.2):
+    def distill(self, replay_buffer, temperature=0.2, tau=0.2):
         sample = replay_buffer.sample(replay_buffer.filled_i, to_gpu=False)
         obs, acs, rews, next_obs, dones = sample
 
