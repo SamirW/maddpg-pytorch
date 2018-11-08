@@ -97,7 +97,7 @@ class SubprocVecEnv(VecEnv):
 class DummyVecEnv(VecEnv):
     def __init__(self, env_fns):
         self.envs = [fn() for fn in env_fns]
-        env = self.envs[0]        
+        env = self.envs[0]
         VecEnv.__init__(self, len(env_fns), env.observation_space, env.action_space)
         if all([hasattr(a, 'adversary') for a in env.agents]):
             self.agent_types = ['adversary' if a.adversary else 'agent' for a in
@@ -111,7 +111,7 @@ class DummyVecEnv(VecEnv):
         self.actions = actions
 
     def step_wait(self):
-        results = [env.step(a) for (a,env) in zip(self.actions, self.envs)]
+        results = [env._step(a) for (a,env) in zip(self.actions, self.envs)]
         obs, rews, dones, infos = map(np.array, zip(*results))
         self.ts += 1
         for (i, done) in enumerate(dones):
@@ -122,7 +122,7 @@ class DummyVecEnv(VecEnv):
         return np.array(obs), np.array(rews), np.array(dones), infos
 
     def reset(self):        
-        results = [env.reset() for env in self.envs]
+        results = [env._reset() for env in self.envs]
         return np.array(results)
 
     def close(self):
