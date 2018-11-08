@@ -36,6 +36,18 @@ class ReplayBuffer(object):
     def __len__(self):
         return self.filled_i
 
+
+    def reset(self):
+        for i in range(len(self.obs_buffs)):
+            self.obs_buffs[i].fill(0)
+            self.ac_buffs[i].fill(0)
+            self.rew_buffs[i].fill(0)
+            self.next_obs_buffs[i].fill(0)
+            self.done_buffs[i].fill(0)
+
+        self.filled_i = 0
+        self.curr_i = 0
+
     def push(self, observations, actions, rewards, next_observations, dones):
         nentries = observations.shape[0]  # handle multiple parallel environments
         if self.curr_i + nentries > self.max_steps:
