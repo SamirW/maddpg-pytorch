@@ -90,3 +90,6 @@ def gumbel_softmax(logits, temperature=1.0, hard=False):
         y_hard = onehot_from_logits(y)
         y = (y_hard - y).detach() + y
     return y
+
+def batch_gumbel_softmax(list_of_logits, t=1.0, h=False):
+    return [gumbel_softmax(logits, temperature=t, hard=h) for logits in list_of_logits]

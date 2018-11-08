@@ -52,7 +52,6 @@ def run(config):
                 # rearrange actions to be per environment
                 actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
                 next_obs, rewards, dones, infos = env.step(actions)
-
                 distill_replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
                 obs = next_obs
 
@@ -153,6 +152,7 @@ def run(config):
         # distill every so often
         if (ep_i+1) % config.distill_freq == 0:
             rollout(num_rollouts=config.distill_rollouts)
+            maddpg.distill(distill_replay_buffer)
 
     maddpg.save(str(run_dir / 'model.pt'))
     env.close()
