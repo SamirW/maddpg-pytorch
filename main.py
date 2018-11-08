@@ -20,7 +20,6 @@ def make_parallel_env(env_id, n_rollout_threads, seed, discrete_action):
             env = make_env(env_id, discrete_action=discrete_action)
             env.seed(seed + rank * 1000)
             np.random.seed(seed + rank * 1000)
-            print(type(env))
             return env
         return init_env
     if n_rollout_threads == 1:
@@ -91,8 +90,12 @@ def run(config):
                                      [obsp.shape[0] for obsp in env.observation_space],
                                      [acsp.shape[0] if isinstance(acsp, Box) else acsp.n
                                       for acsp in env.action_space])
+
+    print("********Starting training********")
     t = 0
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
+
+        # reset after 10000 episodes
         if ep_i == 10000:
             print("Randomizing")
             for i, agent in enumerate(maddpg.agents):
@@ -100,9 +103,11 @@ def run(config):
                     continue
                 agent.reset()
 
-        print("Episodes %i-%i of %i" % (ep_i + 1,
-                                        ep_i + 1 + config.n_rollout_threads,
-                                        config.n_episodes))
+        # print every so often
+        if (ep_i+1) % 100 == 0:
+            print("Episodes %i-%i of %i" % (ep_i + 1,
+                                            ep_i + 1 + config.n_rollout_threads,
+                                            config.n_episodes))
         obs = env.reset()
         # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor
         maddpg.prep_rollouts(device='cpu')
@@ -125,7 +130,7 @@ def run(config):
             actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
             next_obs, rewards, dones, infos = env.step(actions)
 
-            if ep_i+1 % config.display_every == 0:
+            if (ep_i+1) % config.display_every == 0:
                 env.render()
 
             replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
@@ -149,7 +154,7 @@ def run(config):
         for a_i, a_ep_rew in enumerate(ep_rews):
             logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
 
-        logger.add_scalar('joint/mean_episode_rewareds', np.sum(ep_rews), ep_i)
+        logger.add_scalar('joint/mean_episode_rewards', np.sum(ep_rews), ep_i)
 
         if ep_i % config.save_interval < config.n_rollout_threads:
             os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
@@ -183,13 +188,13 @@ if __name__ == '__main__':
     parser.add_argument("--n_training_threads", default=6, type=int)
     parser.add_argument("--buffer_length", default=int(1e6), type=int)
     parser.add_argument("--n_episodes", default=25000, type=int)
-    parser.add_argument("--episode_length", default=25, type=int)
+    parser.add_argument("--episode_length", default=50, type=int)
     parser.add_argument("--steps_per_update", default=100, type=int)
     parser.add_argument("--batch_size",
                         default=1024, type=int,
                         help="Batch size for model training")
     parser.add_argument("--distill_freq",
-                        default=99999, type=int,
+                        default=999999, type=int,
                         help="Distilling frequency")
     parser.add_argument("--distill_rollouts",
                         default=50, type=int,
@@ -208,7 +213,8 @@ if __name__ == '__main__':
                         default="MADDPG", type=str,
                         choices=['MADDPG', 'DDPG'])
     parser.add_argument("--discrete_action",
-                        action='store_true')
+                        action='store_true',
+                        default=True)
 
     config = parser.parse_args()
 
