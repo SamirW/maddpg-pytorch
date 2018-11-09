@@ -32,7 +32,7 @@ def run(config):
 
     def rollout(num_rollouts=50):
         for ep_i in range(0, num_rollouts, config.n_rollout_threads):
-            obs = env.reset()
+            obs = env.reset(flip=flip)
             maddpg.prep_rollouts(device='cpu')
 
             # No exploration
@@ -93,23 +93,20 @@ def run(config):
 
     print("********Starting training********")
     t = 0
+    flip = False
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
 
-        # reset after 10000 episodes
+        # reset after 10000 episodes          
         if ep_i == 10000:
-            print("Randomizing")
-            for i, agent in enumerate(maddpg.agents):
-                if i == 0:
-                    continue
-                agent.reset()            
-            replay_buffer.reset()
+            print("Flipping")
+            flip = True
 
         # print every so often
         if (ep_i+1) % 100 == 0:
             print("Episodes %i-%i of %i" % (ep_i + 1,
                                             ep_i + 1 + config.n_rollout_threads,
                                             config.n_episodes))
-        obs = env.reset()
+        obs = env.reset(flip=flip)
         # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor
         maddpg.prep_rollouts(device='cpu')
 
