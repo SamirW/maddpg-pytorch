@@ -94,10 +94,11 @@ def run(config):
     print("********Starting training********")
     t = 0
     flip = False
+    flip_ep = 500
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
 
         # reset after 10000 episodes          
-        if ep_i == 10000:
+        if ep_i == flip_ep:
             print("Flipping")
             flip = True
 
@@ -160,9 +161,12 @@ def run(config):
             maddpg.save(str(run_dir / 'model.pt'))
 
         # distill every so often, after randomizing
-        if ep_i > 1000 and (ep_i+1) % config.distill_freq == 0:
+        if (ep_i+1) % config.distill_freq == 0:
+        # if (ep_i+1) == flip_ep:
+            print("Distilling")
             distill_replay_buffer.reset()
-            rollout(num_rollouts=config.distill_rollouts)
+            # rollout(num_rollouts=config.distill_rollouts)
+            rollout(num_rollouts=50)
             maddpg.distill(config, distill_replay_buffer)
 
     maddpg.save(str(run_dir / 'model.pt'))
@@ -186,7 +190,7 @@ if __name__ == '__main__':
     parser.add_argument("--n_rollout_threads", default=1, type=int)
     parser.add_argument("--n_training_threads", default=6, type=int)
     parser.add_argument("--buffer_length", default=int(1e6), type=int)
-    parser.add_argument("--n_episodes", default=25000, type=int)
+    parser.add_argument("--n_episodes", default=2000, type=int)
     parser.add_argument("--episode_length", default=25, type=int)
     parser.add_argument("--steps_per_update", default=100, type=int)
     parser.add_argument("--batch_size",

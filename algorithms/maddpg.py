@@ -5,7 +5,7 @@ from torch import Tensor
 from torch.autograd import Variable
 from gym.spaces import Box, Discrete
 from utils.networks import MLPNetwork
-from utils.misc import soft_update, average_gradients, onehot_from_logits, gumbel_softmax, batch_gumbel_softmax
+from utils.misc import soft_update, hard_update, average_gradients, onehot_from_logits, gumbel_softmax, batch_gumbel_softmax
 from utils.agents import DDPGAgent
 
 MSELoss = torch.nn.MSELoss()
@@ -188,29 +188,30 @@ class MADDPG(object):
 
     def distill(self, config, replay_buffer, temperature=0.2, tau=0.2):
         for i in range(config.distill_rollouts):
-            sample = replay_buffer.sample(128, to_gpu=False)
-            obs, acs, rews, next_obs, dones = sample
+            for j in range(self.nagents):
+                sample = replay_buffer.sample(256, to_gpu=False)
+                obs, acs, rews, next_obs, dones = sample
 
-            self.distilled_agent.policy_optimizer.zero_grad()
+                self.distilled_agent.policy_optimizer.zero_grad()
 
-            all_pol_logits = []
-            distilled_logits = []
-            for pi, ob in zip(self.policies, obs):
-                all_pol_logits.append(pi(ob))
-                distilled_logits.append(self.distilled_agent.policy(ob))
+                all_pol_logits = []
+                distilled_logits = []
+                for pi, ob in zip(self.policies, obs):
+                    all_pol_logits.append(pi(ob))
+                    distilled_logits.append(self.distilled_agent.policy(ob))
 
-            losses = []
-            for i in range(self.nagents):
-                losses.append(F.softmax(all_pol_logits[i]/temperature, dim=1)*torch.log(\
-                    F.softmax(all_pol_logits[i]/temperature, dim=1)/\
-                    F.softmax(distilled_logits[i], dim=1)))
+                losses = []
+                losses.append(F.softmax(all_pol_logits[j]/temperature, dim=1)*torch.log(\
+                    F.softmax(all_pol_logits[j]/temperature, dim=1)/\
+                    F.softmax(distilled_logits[j], dim=1)))
 
-            losses = torch.stack(losses).sum()
-            losses.backward()
-            self.distilled_agent.policy_optimizer.step()
+                losses = torch.stack(losses).sum()
+                losses.backward()
+                self.distilled_agent.policy_optimizer.step()
 
         for a in self.agents:
             soft_update(self.distilled_agent.policy, a.policy, tau)
+            # hard_update(self.distilled_agent.policy, a.policy)
 
     def prep_training(self, device='gpu'):
         for a in self.agents:
