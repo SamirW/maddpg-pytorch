@@ -166,7 +166,7 @@ def run(config):
         if ep_i > 1000 and (ep_i+1) % config.distill_freq == 0:
             distill_replay_buffer.reset()
             rollout(num_rollouts=config.distill_rollouts)
-            maddpg.distill(distill_replay_buffer)
+            maddpg.distill(config, distill_replay_buffer)
 
     maddpg.save(str(run_dir / 'model.pt'))
     env.close()
@@ -190,7 +190,7 @@ if __name__ == '__main__':
     parser.add_argument("--n_training_threads", default=6, type=int)
     parser.add_argument("--buffer_length", default=int(1e6), type=int)
     parser.add_argument("--n_episodes", default=25000, type=int)
-    parser.add_argument("--episode_length", default=50, type=int)
+    parser.add_argument("--episode_length", default=25, type=int)
     parser.add_argument("--steps_per_update", default=100, type=int)
     parser.add_argument("--batch_size",
                         default=1024, type=int,
