@@ -163,7 +163,7 @@ def run(config):
         if ep_i > 1000 and (ep_i+1) % config.distill_freq == 0:
             distill_replay_buffer.reset()
             rollout(num_rollouts=config.distill_rollouts)
-            maddpg.distill(distill_replay_buffer)
+            maddpg.distill(config, distill_replay_buffer)
 
     maddpg.save(str(run_dir / 'model.pt'))
     env.close()
