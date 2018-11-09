@@ -162,8 +162,8 @@ def run(config):
             maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
             maddpg.save(str(run_dir / 'model.pt'))
 
-        # distill every so often
-        if (ep_i+1) % config.distill_freq == 0:
+        # distill every so often, after randomizing
+        if ep_i > 1000 and (ep_i+1) % config.distill_freq == 0:
             distill_replay_buffer.reset()
             rollout(num_rollouts=config.distill_rollouts)
             maddpg.distill(distill_replay_buffer)
