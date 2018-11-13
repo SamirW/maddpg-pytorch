@@ -171,7 +171,7 @@ def run(config):
             distill_replay_buffer.reset()
             # rollout(num_rollouts=config.distill_rollouts)
             rollout(num_rollouts=50)
-            maddpg.distill(config, distill_replay_buffer)
+            maddpg.distill(50, distill_replay_buffer)
 
     maddpg.save(str(run_dir / 'model.pt'))
     env.close()

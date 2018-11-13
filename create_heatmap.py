@@ -1,5 +1,6 @@
 import argparse
 import pickle
+import matplotlib.pyplot as plt
 from pathlib import Path
 from algorithms.maddpg import MADDPG
 from utils.heatmap import *
@@ -7,13 +8,16 @@ from utils.buffer import ReplayBuffer
 
 def run(model_dir):
     model_file = str(model_dir / "model.pt")
-    init_maddpg = MADDPG.init_from_save(model_file)
-    heatmap(init_maddpg)
+    maddpg = MADDPG.init_from_save(model_file)
+    heatmap(maddpg)
 
     with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
         replay_buffer = pickle.load(input)
 
-    print(replay_buffer)
+    maddpg.distill(50, replay_buffer)
+    distilled_heatmap(maddpg)
+
+    plt.show()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

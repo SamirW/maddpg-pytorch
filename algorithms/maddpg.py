@@ -203,8 +203,8 @@ class MADDPG(object):
             soft_update(a.target_policy, a.policy, self.tau)
         self.niter += 1
 
-    def distill(self, config, replay_buffer, temperature=0.2, tau=0.2):
-        for i in range(config.distill_rollouts):
+    def distill(self, num_distill, replay_buffer, temperature=0.2, tau=0.2):
+        for i in range(num_distill):
             for j in range(self.nagents):
                 sample = replay_buffer.sample(256, to_gpu=False)
                 obs, acs, rews, next_obs, dones = sample
@@ -226,8 +226,8 @@ class MADDPG(object):
                 losses.backward()
                 self.distilled_agent.policy_optimizer.step()
 
-        for a in self.agents:
-            soft_update(self.distilled_agent.policy, a.policy, tau)
+        # for a in self.agents:
+            # soft_update(self.distilled_agent.policy, a.policy, tau)
             # hard_update(self.distilled_agent.policy, a.policy)
 
     def prep_training(self, device='gpu'):
@@ -236,6 +236,10 @@ class MADDPG(object):
             a.critic.train()
             a.target_policy.train()
             a.target_critic.train()
+        self.distilled_agent.policy.train()
+        self.distilled_agent.critic.train()
+        self.distilled_agent.target_policy.train()
+        self.distilled_agent.target_critic.train()
         if device == 'gpu':
             fn = lambda x: x.cuda()
         else:
@@ -243,23 +247,28 @@ class MADDPG(object):
         if not self.pol_dev == device:
             for a in self.agents:
                 a.policy = fn(a.policy)
+            self.distilled_agent.policy = fn(self.distilled_agent.policy)
             self.pol_dev = device
         if not self.critic_dev == device:
             for a in self.agents:
                 a.critic = fn(a.critic)
+            self.distilled_agent.critic = fn(self.distilled_agent.critic)
             self.critic_dev = device
         if not self.trgt_pol_dev == device:
             for a in self.agents:
                 a.target_policy = fn(a.target_policy)
+            self.distilled_agent.target_policy = fn(self.distilled_agent.target_policy)
             self.trgt_pol_dev = device
         if not self.trgt_critic_dev == device:
             for a in self.agents:
                 a.target_critic = fn(a.target_critic)
+            self.distilled_agent.target_critic = fn(self.distilled_agent.target_critic)
             self.trgt_critic_dev = device
 
     def prep_rollouts(self, device='cpu'):
         for a in self.agents:
             a.policy.eval()
+        self.distilled_agent.policy.eval()
         if device == 'gpu':
             fn = lambda x: x.cuda()
         else:
@@ -268,6 +277,7 @@ class MADDPG(object):
         if not self.pol_dev == device:
             for a in self.agents:
                 a.policy = fn(a.policy)
+            self.distilled_agent.policy = fn(self.distilled_agent.policy)
             self.pol_dev = device
 
     def save(self, filename):

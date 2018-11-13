@@ -41,10 +41,9 @@ def add_arrows(axes, delta_dict, q_vals = None, rescale=False):
         # print(q_vals)
 
 def heatmap(maddpg):
-    # maddpg = MADDPG.init_from_save(model_file)
     fig, axes = plt.subplots(2, 2)
 
-    num_arrows = 17
+    num_arrows = 11
     other_poses = [[[0.5, 0.5], [-0.5, -0.5]], [[-0.5, -0.5], [0.5, 0.5]]]
     titles = [["Agent 1, State 1", "Agent 1, State 2"], ["Agent 2, State 1", "Agent 2, State 2"]]
     
@@ -77,6 +76,7 @@ def heatmap(maddpg):
                     torch_agent_logits = maddpg.action_logits(torch_obs)
                     agent_logits = [ac.data.numpy() for ac in torch_agent_logits]
                     action = agent_logits[i][0]
+
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
 
             add_arrows(ax, delta_dict)
@@ -89,14 +89,61 @@ def heatmap(maddpg):
             ax.add_artist(plt.Circle(lndmrk_poses[0], 0.05, color='grey'))
             ax.add_artist(plt.Circle(lndmrk_poses[1], 0.05, color='grey'))
 
+def distilled_heatmap(maddpg):
+    fig, axes = plt.subplots(2, 2)
 
-    plt.show()
+    num_arrows = 11
+    other_poses = [[[0.5, 0.5], [-0.5, -0.5]], [[-0.5, -0.5], [0.5, 0.5]]]
+    titles = [["Agent 1, State 1", "Agent 1, State 2"], ["Agent 2, State 1", "Agent 2, State 2"]]
+    
+    for i in range(len(axes)):
+        for j in range(len(axes[i])):
+
+            ax = axes[i, j]
+            ax.set_aspect('equal', 'box')
+            ax.set_xlim(-1, 1)
+            ax.set_ylim(-1, 1)
+            ax.set_title(titles[i][j])
+
+            delta_dict = dict()
+            other_pos = other_poses[i][j]
+            for x in np.linspace(-1, 1, num_arrows):
+                for y in np.linspace(-1, 1, num_arrows):
+                    agent_pos = [x, y]
+
+                    if i == 0:
+                        agent_poses = np.array([agent_pos, other_pos])
+                    else:
+                        agent_poses = np.array([other_pos, agent_pos])
+
+                    obs = get_observations(agent_poses)
+                    maddpg.prep_rollouts(device='cpu')
+
+                    torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
+                                          requires_grad=False)
+                                 for i in range(maddpg.nagents)]
+
+                    torch_agent_i_logits = maddpg.distilled_agent.policy(torch_obs[i])
+                    action = torch_agent_i_logits.data.numpy()[0]
+                    print(action)
+
+                    delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
+
+            add_arrows(ax, delta_dict)
+
+            if i==0:
+                color = 'r'
+            else:
+                color = 'b'
+            ax.add_artist(plt.Circle(other_pos, 0.1, color=color))
+            ax.add_artist(plt.Circle(lndmrk_poses[0], 0.05, color='grey'))
+            ax.add_artist(plt.Circle(lndmrk_poses[1], 0.05, color='grey'))
 
 def heatmap2(model_file):
     maddpg = MADDPG.init_from_save(model_file)
     fig, axes = plt.subplots(2, 2)
 
-    num_arrows = 17
+    num_arrows = 11
     other_poses = [[[0.5, 0.5], [-0.5, -0.5]], [[-0.5, -0.5], [0.5, 0.5]]]
     titles = [["Agent 1, State 1", "Agent 1, State 2"], ["Agent 2, State 1", "Agent 2, State 2"]]
     
