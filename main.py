@@ -91,15 +91,19 @@ def run(config):
                                      [acsp.shape[0] if isinstance(acsp, Box) else acsp.n
                                       for acsp in env.action_space])
 
-    print("********Starting training********")
     t = 0
     flip = False
-    flip_ep = 500
+    flip_ep = 1000
+
+    print("Distilling every {} episodes".format(config.distill_freq))
+    print("Flipping at episode {}".format(flip_ep))
+    print("********Starting training********")
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
 
         # reset after 10000 episodes          
         if ep_i == flip_ep:
             print("Flipping")
+            replay_buffer.reset()
             flip = True
 
         # print every so often
@@ -108,7 +112,7 @@ def run(config):
                                             ep_i + 1 + config.n_rollout_threads,
                                             config.n_episodes))
         obs = env.reset(flip=flip)
-        # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor
+        # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor\
         maddpg.prep_rollouts(device='cpu')
 
         explr_pct_remaining = max(0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
@@ -121,6 +125,7 @@ def run(config):
             torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
                                   requires_grad=False)
                          for i in range(maddpg.nagents)]
+
             # get actions as torch Variables
             torch_agent_actions = maddpg.step(torch_obs, explore=True)
             # convert actions to numpy arrays
