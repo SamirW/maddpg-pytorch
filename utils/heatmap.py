@@ -125,11 +125,10 @@ def distilled_heatmap(maddpg):
 
                     torch_agent_i_logits = maddpg.distilled_agent.policy(torch_obs[i])
                     action = torch_agent_i_logits.data.numpy()[0]
-                    print(action)
 
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
 
-            add_arrows(ax, delta_dict, rescale=True)
+            add_arrows(ax, delta_dict, rescale=False)
 
             if i==0:
                 color = 'r'

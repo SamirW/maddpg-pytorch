@@ -206,7 +206,7 @@ class MADDPG(object):
     def distill(self, num_distill, replay_buffer, temperature=0.2, tau=0.2):
         for i in range(num_distill):
             for j in range(self.nagents):
-                sample = replay_buffer.sample(256, to_gpu=False)
+                sample = replay_buffer.sample(12, to_gpu=False)
                 obs, acs, rews, next_obs, dones = sample
 
                 self.distilled_agent.policy_optimizer.zero_grad()
@@ -218,19 +218,28 @@ class MADDPG(object):
                     distilled_logits.append(self.distilled_agent.policy(ob))
 
                 losses = []
-                loss = F.softmax(all_pol_logits[j]/temperature, dim=1)*torch.log(\
+                loss = F.softmax(all_pol_logits[j]/temperature, dim=1)*torch.log(1e-3+\
                     F.softmax(all_pol_logits[j]/temperature, dim=1)/\
                     F.softmax(distilled_logits[j], dim=1))
-                # assert not np.isnan(loss.detach().numpy()).any()
                 if np.isnan(loss.detach().numpy()).any():
-                    continue
+                    idx = list(map(tuple, np.where(np.isnan(loss.detach().numpy()))))
+                    print(F.softmax(all_pol_logits[j]/temperature, dim=1).detach().numpy()[idx])
+                    print(F.softmax(distilled_logits[j], dim=1).detach().numpy()[idx])
+                    print(torch.log(1e-3+\
+                        F.softmax(all_pol_logits[j]/temperature, dim=1)/\
+                        F.softmax(distilled_logits[j], dim=1)).detach().numpy()[idx])
+                    print(loss.detach().numpy()[idx])
+                    exit()
+                # if np.isnan(loss.detach().numpy()).any():
+                    # continue
                 losses.append(loss)
                 losses = torch.stack(losses).sum()
                 losses.backward()
+                torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)
                 self.distilled_agent.policy_optimizer.step()
 
-        # for a in self.agents:
-            # soft_update(self.distilled_agent.policy, a.policy, tau)
+        for a in self.agents:
+            soft_update(self.distilled_agent.policy, a.policy, tau)
             # hard_update(self.distilled_agent.policy, a.policy)
 
     def prep_training(self, device='gpu'):
