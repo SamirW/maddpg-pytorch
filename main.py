@@ -165,9 +165,8 @@ def run(config):
             maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
             maddpg.save(str(run_dir / 'model.pt'))
 
-        # distill every so often, after randomizing
+        # distill every so often
         if (ep_i+1) % config.distill_freq == 0:
-        # if (ep_i+1) == flip_ep:
             print("Distilling")
             distill_replay_buffer.reset()
             # rollout(num_rollouts=config.distill_rollouts)
@@ -178,6 +177,11 @@ def run(config):
     env.close()
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
+
+    # Save experience replay buffer
+    import pickle 
+    with open(str(run_dir /'replay_buffer.pkl'), 'wb') as output:
+        pickle.dump(replay_buffer, output, -1)
 
 
 if __name__ == '__main__':

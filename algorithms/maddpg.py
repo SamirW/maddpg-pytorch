@@ -96,6 +96,12 @@ class MADDPG(object):
         return [a.action_logits(obs) for a, obs in zip(self.agents,
                                                         observations)]
 
+    def get_critic_vals(self, obs, act):
+        obs = [o.repeat(2,1) for o in obs]
+        act = [a.repeat(2,1) for a in act]
+        vf_in = torch.cat((*obs, *act), dim=1)
+        return [a.critic(vf_in) for a in self.agents]
+
     def update(self, sample, agent_i, parallel=False, logger=None):
         """
         Update parameters of agent model based on sample from replay buffer
