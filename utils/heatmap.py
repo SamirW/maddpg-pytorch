@@ -43,7 +43,7 @@ def add_arrows(axes, delta_dict, q_vals = None, rescale=False):
 def heatmap(maddpg):
     fig, axes = plt.subplots(2, 2)
 
-    num_arrows = 11
+    num_arrows = 17
     other_poses = [[[0.5, 0.5], [-0.5, -0.5]], [[-0.5, -0.5], [0.5, 0.5]]]
     titles = [["Agent 1, State 1", "Agent 1, State 2"], ["Agent 2, State 1", "Agent 2, State 2"]]
     
@@ -79,7 +79,7 @@ def heatmap(maddpg):
 
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
 
-            add_arrows(ax, delta_dict)
+            add_arrows(ax, delta_dict, rescale=True)
 
             if i==0:
                 color = 'r'
@@ -92,7 +92,7 @@ def heatmap(maddpg):
 def distilled_heatmap(maddpg):
     fig, axes = plt.subplots(2, 2)
 
-    num_arrows = 11
+    num_arrows = 17
     other_poses = [[[0.5, 0.5], [-0.5, -0.5]], [[-0.5, -0.5], [0.5, 0.5]]]
     titles = [["Agent 1, State 1", "Agent 1, State 2"], ["Agent 2, State 1", "Agent 2, State 2"]]
     
@@ -129,7 +129,7 @@ def distilled_heatmap(maddpg):
 
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
 
-            add_arrows(ax, delta_dict)
+            add_arrows(ax, delta_dict, rescale=True)
 
             if i==0:
                 color = 'r'

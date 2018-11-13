@@ -218,10 +218,13 @@ class MADDPG(object):
                     distilled_logits.append(self.distilled_agent.policy(ob))
 
                 losses = []
-                losses.append(F.softmax(all_pol_logits[j]/temperature, dim=1)*torch.log(\
+                loss = F.softmax(all_pol_logits[j]/temperature, dim=1)*torch.log(\
                     F.softmax(all_pol_logits[j]/temperature, dim=1)/\
-                    F.softmax(distilled_logits[j], dim=1)))
-
+                    F.softmax(distilled_logits[j], dim=1))
+                # assert not np.isnan(loss.detach().numpy()).any()
+                if np.isnan(loss.detach().numpy()).any():
+                    continue
+                losses.append(loss)
                 losses = torch.stack(losses).sum()
                 losses.backward()
                 self.distilled_agent.policy_optimizer.step()

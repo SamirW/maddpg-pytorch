@@ -14,7 +14,7 @@ def run(model_dir):
     with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
         replay_buffer = pickle.load(input)
 
-    maddpg.distill(50, replay_buffer)
+    maddpg.distill(100, replay_buffer)
     distilled_heatmap(maddpg)
 
     plt.show()
