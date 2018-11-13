@@ -85,6 +85,17 @@ class MADDPG(object):
         return [a.step(obs, explore=explore) for a, obs in zip(self.agents,
                                                                  observations)]
 
+    def action_logits(self, observations):
+        """
+        Get logits of action policy for all agents
+        Inputs:
+            observations: List of observations for each agent
+        Outputs:
+            logits: logits of action policy for each agent
+        """
+        return [a.action_logits(obs) for a, obs in zip(self.agents,
+                                                        observations)]
+
     def update(self, sample, agent_i, parallel=False, logger=None):
         """
         Update parameters of agent model based on sample from replay buffer

@@ -80,7 +80,7 @@ class DDPGAgent(object):
             action = action.clamp(-1, 1)
         return action
 
-    def step_logits(self, obs):
+    def action_logits(self, obs):
         return(self.policy(obs))
 
     def get_params(self):
