@@ -44,7 +44,7 @@ def run(config):
     run_dir = model_dir / curr_run
     log_dir = run_dir / 'logs'
     os.makedirs(str(log_dir))
-    log = set_log(config, log_dir)
+    log = set_log(config, model_dir)
     logger = SummaryWriter(str(log_dir))
 
     torch.manual_seed(config.seed)

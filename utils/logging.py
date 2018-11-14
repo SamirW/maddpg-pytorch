@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-
 def read_key_from_log(path, key, index, flip=False):
     with open(path) as f:
         content = f.read().splitlines()
