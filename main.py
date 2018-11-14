@@ -179,9 +179,10 @@ def run(config):
     logger.close()
 
     # Save experience replay buffer
-    import pickle 
-    with open(str(run_dir /'replay_buffer.pkl'), 'wb') as output:
-        pickle.dump(replay_buffer, output, -1)
+    if config.save_buffer:
+        import pickle 
+        with open(str(run_dir /'replay_buffer.pkl'), 'wb') as output:
+            pickle.dump(replay_buffer, output, -1)
 
 
 if __name__ == '__main__':
@@ -227,6 +228,9 @@ if __name__ == '__main__':
     parser.add_argument("--discrete_action",
                         action='store_true',
                         default=True)
+    parser.add_argument("--save_buffer",
+                        action="store_true",
+                        default=False)
 
     config = parser.parse_args()
 
