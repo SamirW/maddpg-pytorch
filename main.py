@@ -93,7 +93,7 @@ def run(config):
 
     t = 0
     flip = False
-    flip_ep = 1000
+    flip_ep = 99999
 
     print("Distilling every {} episodes".format(config.distill_freq))
     print("Flipping at episode {}".format(flip_ep))
