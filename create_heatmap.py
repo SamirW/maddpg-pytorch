@@ -9,14 +9,14 @@ from utils.buffer import ReplayBuffer
 def run(model_dir):
     model_file = str(model_dir / "model.pt")
     maddpg = MADDPG.init_from_save(model_file)
-    heatmap(maddpg)
+    heatmap(maddpg, title="Agent Policies Before Distillation")
 
     with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
         replay_buffer = pickle.load(input)
 
-    maddpg.distill(100, 256, replay_buffer)
+    maddpg.distill(100, 256, replay_buffer, hard=True)
     distilled_heatmap(maddpg)
-    heatmap(maddpg, title="Agent Policies After Distillation")
+    # heatmap(maddpg, title="Agent Policies After Distillation")
 
     plt.show()
 
