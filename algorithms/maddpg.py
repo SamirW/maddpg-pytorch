@@ -205,7 +205,6 @@ class MADDPG(object):
 
     def distill(self, num_distill, batch_size, replay_buffer, hard=False, temperature=0.01, tau=0.01):
         KL_loss = torch.nn.KLDivLoss(size_average=False)
-        # self.prep_training('cpu')
 
         for i in range(num_distill):
             sample = replay_buffer.sample(batch_size, to_gpu=False)
@@ -230,7 +229,6 @@ class MADDPG(object):
                 torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)
                 self.distilled_agent.policy_optimizer.step()
 
-        # self.prep_rollouts('cpu')
         for a in self.agents:
             if hard: 
                 # hard_update(a.policy, self.distilled_agent.policy)

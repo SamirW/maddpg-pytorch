@@ -6,17 +6,19 @@ from algorithms.maddpg import MADDPG
 from utils.heatmap import *
 from utils.buffer import ReplayBuffer
 
-def run(model_dir):
+def run(config):
+    model_dir = Path('./models') / config.env_id / config.model_name / "run{}".format(config.run)
     model_file = str(model_dir / "model.pt")
+
     maddpg = MADDPG.init_from_save(model_file)
     heatmap(maddpg, title="Agent Policies Before Distillation")
 
     with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
         replay_buffer = pickle.load(input)
 
-    maddpg.distill(100, 256, replay_buffer, hard=True)
+    maddpg.distill(100, 1024, replay_buffer, hard=True)
     distilled_heatmap(maddpg)
-    heatmap(maddpg, title="Agent Policies After Distillation")
+    # heatmap(maddpg, title="Agent Policies After Distillation")
 
     plt.show()
 
@@ -29,5 +31,4 @@ if __name__ == '__main__':
     parser.add_argument("run", help="Run number")
     config = parser.parse_args()
 
-    model_dir = Path('./models') / config.env_id / config.model_name / "run{}".format(config.run)
-    run(model_dir)
+    run(config)

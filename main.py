@@ -8,6 +8,7 @@ from pathlib import Path
 from torch.autograd import Variable
 from tensorboardX import SummaryWriter
 from utils.make_env import make_env
+from utils.logging import set_log
 from utils.buffer import ReplayBuffer
 from utils.env_wrappers import SubprocVecEnv, DummyVecEnv
 from algorithms.maddpg import MADDPG
@@ -29,7 +30,6 @@ def make_parallel_env(env_id, n_rollout_threads, seed, discrete_action):
 
 
 def run(config):
-
     model_dir = Path('./models') / config.env_id / config.model_name
     if not model_dir.exists():
         curr_run = 'run1'
@@ -44,6 +44,7 @@ def run(config):
     run_dir = model_dir / curr_run
     log_dir = run_dir / 'logs'
     os.makedirs(str(log_dir))
+    log = set_log(config, log_dir)
     logger = SummaryWriter(str(log_dir))
 
     torch.manual_seed(config.seed)
@@ -77,10 +78,10 @@ def run(config):
             flip = True
 
         # print every so often
-        if (ep_i+1) % 100 == 0:
-            print("Episodes %i-%i of %i" % (ep_i + 1,
-                                            ep_i + 1 + config.n_rollout_threads,
-                                            config.n_episodes))
+        # if (ep_i+1) % 100 == 0:
+            # print("Episodes %i-%i of %i" % (ep_i + 1,
+                                            # ep_i + 1 + config.n_rollout_threads,
+                                            # config.n_episodes))
         obs = env.reset(flip=flip)
         # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor\
         maddpg.prep_rollouts(device='cpu')
@@ -129,6 +130,7 @@ def run(config):
             logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
 
         logger.add_scalar('joint/mean_episode_rewards', np.sum(ep_rews), ep_i)
+        log[config.log_name].info("Train episode reward {:0.5f} at episode {}".format(np.sum(ep_rews), ep_i))
 
         if ep_i % config.save_interval < config.n_rollout_threads:
             os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
@@ -142,6 +144,7 @@ def run(config):
 
         if (ep_i+1) == config.hard_distill_ep:
             print("Distilling hard")
+            maddpg.prep_rollouts(device='cpu')
             maddpg.distill(100, 256, replay_buffer, hard=True)
 
     maddpg.save(str(run_dir / 'model.pt'))
@@ -162,6 +165,9 @@ if __name__ == '__main__':
     parser.add_argument("model_name",
                         help="Name of directory to store " +
                              "model/training contents")
+    parser.add_argument("--log_comment",
+                        default="", type=str,
+                        help="Log file comment")
     parser.add_argument("--seed",
                         default=1, type=int,
                         help="Random seed")
@@ -186,9 +192,6 @@ if __name__ == '__main__':
     parser.add_argument("--distill_freq",
                         default=999999, type=int,
                         help="Distilling frequency")
-    parser.add_argument("--distill_rollouts",
-                        default=50, type=int,
-                        help="Distilling rollouts for data collection")
     parser.add_argument("--n_exploration_eps", default=25000, type=int)
     parser.add_argument("--init_noise_scale", default=0.3, type=float)
     parser.add_argument("--final_noise_scale", default=0.0, type=float)
@@ -210,5 +213,9 @@ if __name__ == '__main__':
                         default=False)
 
     config = parser.parse_args()
+
+    config.log_name = \
+        "env::%s_seed::%s_comment::%s_log" % (
+            config.env_id, str(config.seed), config.log_comment)  
 
     run(config)
