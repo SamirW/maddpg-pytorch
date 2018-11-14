@@ -79,7 +79,7 @@ def heatmap(maddpg, title="Agent policies before distillation"):
 
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
 
-            add_arrows(ax, delta_dict, rescale=True)
+            add_arrows(ax, delta_dict, rescale=False)
 
             if i==0:
                 color = 'r'

@@ -229,9 +229,12 @@ class MADDPG(object):
                 torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)
                 self.distilled_agent.policy_optimizer.step()
 
+        print("Done distilling")
+        self.prep_rollouts(device='cpu')
         for a in self.agents:
             hard_update(a.policy, self.distilled_agent.policy)
-            # soft_update(a.policy, self.distilled_agent.policy, 0.2)
+            # for i in range(100):
+                # soft_update(a.policy, self.distilled_agent.policy, 0.05)
 
     def prep_training(self, device='gpu'):
         for a in self.agents:
