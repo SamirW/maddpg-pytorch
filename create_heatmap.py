@@ -16,6 +16,7 @@ def run(model_dir):
 
     maddpg.distill(100, 256, replay_buffer)
     distilled_heatmap(maddpg)
+    heatmap(maddpg, title="Agent Policies After Distillation")
 
     plt.show()
 

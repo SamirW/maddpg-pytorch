@@ -40,12 +40,12 @@ def add_arrows(axes, delta_dict, q_vals = None, rescale=False):
         axes.imshow(q_vals)
         # print(q_vals)
 
-def heatmap(maddpg):
+def heatmap(maddpg, title="Agent policies before distillation"):
     fig, axes = plt.subplots(2, 2)
 
     num_arrows = 17
     other_poses = [[[0.5, 0.5], [-0.5, -0.5]], [[-0.5, -0.5], [0.5, 0.5]]]
-    titles = [["Agent 1, State 1", "Agent 1, State 2"], ["Agent 2, State 1", "Agent 2, State 2"]]
+    titles = [["Blue Agent, State 1", "Blue Agent, State 2"], ["Red Agent, State 1", "Red Agent, State 2"]]
     
     for i in range(len(axes)):
         for j in range(len(axes[i])):
@@ -89,14 +89,14 @@ def heatmap(maddpg):
             ax.add_artist(plt.Circle(lndmrk_poses[0], 0.05, color='grey'))
             ax.add_artist(plt.Circle(lndmrk_poses[1], 0.05, color='grey'))
 
-    fig.suptitle("Agent policies before distillation")
+    fig.suptitle(title)
 
 def distilled_heatmap(maddpg):
     fig, axes = plt.subplots(2, 2)
 
     num_arrows = 17
     other_poses = [[[0.5, 0.5], [-0.5, -0.5]], [[-0.5, -0.5], [0.5, 0.5]]]
-    titles = [["Agent 1, State 1", "Agent 1, State 2"], ["Agent 2, State 1", "Agent 2, State 2"]]
+    titles = [["Blue Agent, State 1", "Blue Agent, State 2"], ["Red Agent, State 1", "Red Agent, State 2"]]
     
     for i in range(len(axes)):
         for j in range(len(axes[i])):
@@ -140,7 +140,7 @@ def distilled_heatmap(maddpg):
             ax.add_artist(plt.Circle(lndmrk_poses[0], 0.05, color='grey'))
             ax.add_artist(plt.Circle(lndmrk_poses[1], 0.05, color='grey'))
 
-    fig.suptitle("Agent policies after distillation")
+    fig.suptitle("Distilled Policy")
 
 def heatmap2(model_file):
     maddpg = MADDPG.init_from_save(model_file)
