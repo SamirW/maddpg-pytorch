@@ -93,7 +93,7 @@ def run(config):
 
     t = 0
     flip = False
-    flip_ep = 99999
+    flip_ep = 1000
 
     print("Distilling every {} episodes".format(config.distill_freq))
     print("Flipping at episode {}".format(flip_ep))
@@ -168,10 +168,10 @@ def run(config):
         # distill every so often
         if (ep_i+1) % config.distill_freq == 0:
             print("Distilling")
-            distill_replay_buffer.reset()
+            # distill_replay_buffer.reset()
             # rollout(num_rollouts=config.distill_rollouts)
-            rollout(num_rollouts=50)
-            maddpg.distill(50, distill_replay_buffer)
+            # rollout(num_rollouts=50)
+            maddpg.distill(100, 256, replay_buffer)
 
     maddpg.save(str(run_dir / 'model.pt'))
     env.close()

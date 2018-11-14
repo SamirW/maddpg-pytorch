@@ -89,6 +89,8 @@ def heatmap(maddpg):
             ax.add_artist(plt.Circle(lndmrk_poses[0], 0.05, color='grey'))
             ax.add_artist(plt.Circle(lndmrk_poses[1], 0.05, color='grey'))
 
+    fig.suptitle("Agent policies before distillation")
+
 def distilled_heatmap(maddpg):
     fig, axes = plt.subplots(2, 2)
 
@@ -137,6 +139,8 @@ def distilled_heatmap(maddpg):
             ax.add_artist(plt.Circle(other_pos, 0.1, color=color))
             ax.add_artist(plt.Circle(lndmrk_poses[0], 0.05, color='grey'))
             ax.add_artist(plt.Circle(lndmrk_poses[1], 0.05, color='grey'))
+
+    fig.suptitle("Agent policies after distillation")
 
 def heatmap2(model_file):
     maddpg = MADDPG.init_from_save(model_file)

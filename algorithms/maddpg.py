@@ -203,43 +203,35 @@ class MADDPG(object):
             soft_update(a.target_policy, a.policy, self.tau)
         self.niter += 1
 
-    def distill(self, num_distill, replay_buffer, temperature=0.2, tau=0.2):
+    def distill(self, num_distill, batch_size, replay_buffer, temperature=0.05, tau=0.01):
+        KL_loss = torch.nn.KLDivLoss(size_average=False)
+
         for i in range(num_distill):
-            for j in range(self.nagents):
-                sample = replay_buffer.sample(12, to_gpu=False)
-                obs, acs, rews, next_obs, dones = sample
+            sample = replay_buffer.sample(batch_size, to_gpu=False)
+            obs, acs, rews, next_obs, dones = sample
+
+            all_pol_logits = []
+            distilled_logits = []
+            for pi, ob in zip(self.policies, obs):
+                all_pol_logits.append(pi(ob))
+                distilled_logits.append(self.distilled_agent.policy(ob))
+
+            for j, agent in enumerate(self.agents):
 
                 self.distilled_agent.policy_optimizer.zero_grad()
 
-                all_pol_logits = []
-                distilled_logits = []
-                for pi, ob in zip(self.policies, obs):
-                    all_pol_logits.append(pi(ob))
-                    distilled_logits.append(self.distilled_agent.policy(ob))
+                with torch.no_grad():
+                    target = F.softmax(all_pol_logits[j], dim=1)
+                student = F.log_softmax(distilled_logits[j], dim=1)
+                loss = KL_loss(student, target) / batch_size
+                loss.backward()
 
-                losses = []
-                loss = F.softmax(all_pol_logits[j]/temperature, dim=1)*torch.log(1e-3+\
-                    F.softmax(all_pol_logits[j]/temperature, dim=1)/\
-                    F.softmax(distilled_logits[j], dim=1))
-                if np.isnan(loss.detach().numpy()).any():
-                    idx = list(map(tuple, np.where(np.isnan(loss.detach().numpy()))))
-                    print(F.softmax(all_pol_logits[j]/temperature, dim=1).detach().numpy()[idx])
-                    print(F.softmax(distilled_logits[j], dim=1).detach().numpy()[idx])
-                    print(torch.log(1e-3+\
-                        F.softmax(all_pol_logits[j]/temperature, dim=1)/\
-                        F.softmax(distilled_logits[j], dim=1)).detach().numpy()[idx])
-                    print(loss.detach().numpy()[idx])
-                    exit()
-                # if np.isnan(loss.detach().numpy()).any():
-                    # continue
-                losses.append(loss)
-                losses = torch.stack(losses).sum()
-                losses.backward()
                 torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)
                 self.distilled_agent.policy_optimizer.step()
 
-        for a in self.agents:
-            soft_update(self.distilled_agent.policy, a.policy, tau)
+                soft_update(self.distilled_agent.policy, agent.policy, tau)                
+
+        # for a in self.agents:
             # hard_update(self.distilled_agent.policy, a.policy)
 
     def prep_training(self, device='gpu'):
