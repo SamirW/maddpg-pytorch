@@ -30,30 +30,6 @@ def make_parallel_env(env_id, n_rollout_threads, seed, discrete_action):
 
 def run(config):
 
-    def rollout(num_rollouts=50):
-        for ep_i in range(0, num_rollouts, config.n_rollout_threads):
-            obs = env.reset(flip=flip)
-            maddpg.prep_rollouts(device='cpu')
-
-            # No exploration
-            maddpg.scale_noise(0)
-            maddpg.reset_noise()
-
-            for et_i in range(config.episode_length):
-                # rearrange observations to be per agent, and convert to torch Variable
-                torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
-                                      requires_grad=False)
-                             for i in range(maddpg.nagents)]
-                # get actions as torch Variables
-                torch_agent_actions = maddpg.step(torch_obs, explore=True)
-                # convert actions to numpy arrays
-                agent_actions = [ac.data.numpy() for ac in torch_agent_actions]
-                # rearrange actions to be per environment
-                actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
-                next_obs, rewards, dones, infos = env.step(actions)
-                distill_replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
-                obs = next_obs
-
     model_dir = Path('./models') / config.env_id / config.model_name
     if not model_dir.exists():
         curr_run = 'run1'
@@ -85,23 +61,17 @@ def run(config):
                                  [obsp.shape[0] for obsp in env.observation_space],
                                  [acsp.shape[0] if isinstance(acsp, Box) else acsp.n
                                   for acsp in env.action_space])
-
-    distill_replay_buffer = ReplayBuffer(config.distill_rollouts*config.episode_length, maddpg.nagents,
-                                     [obsp.shape[0] for obsp in env.observation_space],
-                                     [acsp.shape[0] if isinstance(acsp, Box) else acsp.n
-                                      for acsp in env.action_space])
-
     t = 0
     flip = False
-    flip_ep = 999999
 
     print("Distilling every {} episodes".format(config.distill_freq))
-    print("Flipping at episode {}".format(flip_ep))
+    print("Distilling hard at episode {}".format(config.hard_distill_ep))
+    print("Flipping at episode {}".format(config.flip_ep))
     print("********Starting training********")
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
 
-        # reset after 10000 episodes          
-        if ep_i == flip_ep:
+        # Flip after 10000 episodes          
+        if ep_i == config.flip_ep:
             print("Flipping")
             replay_buffer.reset()
             flip = True
@@ -168,10 +138,11 @@ def run(config):
         # distill every so often
         if (ep_i+1) % config.distill_freq == 0:
             print("Distilling")
-            # distill_replay_buffer.reset()
-            # rollout(num_rollouts=config.distill_rollouts)
-            # rollout(num_rollouts=50)
             maddpg.distill(100, 256, replay_buffer)
+
+        if (ep_i+1) == config.hard_distill_ep:
+            print("Distilling hard")
+            maddpg.distill(100, 256, replay_buffer, hard=True)
 
     maddpg.save(str(run_dir / 'model.pt'))
     env.close()
@@ -206,6 +177,12 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size",
                         default=1024, type=int,
                         help="Batch size for model training")
+    parser.add_argument("--flip_ep",
+                        default=999999, type=int,
+                        help="Episode at which to flip")
+    parser.add_argument("--hard_distill_ep",
+                        default=999999, type=int,
+                        help="Episode at which to hard distill")
     parser.add_argument("--distill_freq",
                         default=999999, type=int,
                         help="Distilling frequency")

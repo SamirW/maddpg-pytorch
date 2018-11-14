@@ -203,7 +203,7 @@ class MADDPG(object):
             soft_update(a.target_policy, a.policy, self.tau)
         self.niter += 1
 
-    def distill(self, num_distill, batch_size, replay_buffer, temperature=0.01, tau=0.01):
+    def distill(self, num_distill, batch_size, replay_buffer, hard=False, temperature=0.01, tau=0.01):
         KL_loss = torch.nn.KLDivLoss(size_average=False)
 
         for i in range(num_distill):
@@ -229,12 +229,8 @@ class MADDPG(object):
                 torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)
                 self.distilled_agent.policy_optimizer.step()
 
-        print("Done distilling")
-        self.prep_rollouts(device='cpu')
         for a in self.agents:
-            hard_update(a.policy, self.distilled_agent.policy)
-            # for i in range(100):
-                # soft_update(a.policy, self.distilled_agent.policy, 0.05)
+            if hard: hard_update(a.policy, self.distilled_agent.policy)
 
     def prep_training(self, device='gpu'):
         for a in self.agents:
