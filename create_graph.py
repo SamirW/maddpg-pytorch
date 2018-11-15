@@ -8,7 +8,8 @@ plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip/init_graph/"
-num_seeds = 5
+num_seeds = 10
+conv_size = 20
 
 def moving_average(data_set, periods=10):
     weights = np.ones(periods) / periods
@@ -27,8 +28,8 @@ if __name__ == "__main__":
             BASE_DIR + \
             "env::simple_spread_flip_seed::{}_comment::no_distill_log".format(i+1)
     
-        data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), 20)
-        data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), 20)
+        data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
+        data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), conv_size)
 
         no_distill_data.append(data)
         no_distill_data_ep.append(data_x)
@@ -44,8 +45,8 @@ if __name__ == "__main__":
             BASE_DIR + \
             "env::simple_spread_flip_seed::{}_comment::distill_log".format(i+1)
     
-        data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), 20)
-        data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), 20)
+        data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
+        data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), conv_size)
 
         distill_data.append(data)
         distill_data_ep.append(data_x)
@@ -88,6 +89,6 @@ if __name__ == "__main__":
         mode="expand", 
         borderaxespad=0.)
 
-    # plt.show()
+    plt.show()
     
-    plt.savefig("prelim_graph.png", bbox_inches="tight", dpi=300) 
+    # plt.savefig("prelim_graph.png", bbox_inches="tight", dpi=300) 
