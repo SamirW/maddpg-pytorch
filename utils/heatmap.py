@@ -40,7 +40,7 @@ def add_arrows(axes, delta_dict, q_vals = None, rescale=False):
         axes.imshow(q_vals)
         # print(q_vals)
 
-def heatmap(maddpg, title="Agent Policies"):
+def heatmap(maddpg, title="Agent Policies", save=False):
     fig, axes = plt.subplots(2, 2)
 
     num_arrows = 21
@@ -91,7 +91,10 @@ def heatmap(maddpg, title="Agent Policies"):
 
     fig.suptitle(title)
 
-def distilled_heatmap(maddpg):
+    if save:
+        plt.savefig("{}.png".format(title), bbox_inches="tight", dpi=300) 
+
+def distilled_heatmap(maddpg, save=False):
     fig, axes = plt.subplots(2, 2)
 
     num_arrows = 21
@@ -141,6 +144,9 @@ def distilled_heatmap(maddpg):
             ax.add_artist(plt.Circle(lndmrk_poses[1], 0.05, color='grey'))
 
     fig.suptitle("Distilled Policy")
+
+    if save:
+        plt.savefig("Distilled Policy.png", bbox_inches="tight", dpi=300) 
 
 def distilled_heatmap2(maddpg):
     fig, axes = plt.subplots(1, 2)

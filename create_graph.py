@@ -8,7 +8,7 @@ plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip/init_graph/"
-num_seeds = 2
+num_seeds = 5
 
 def moving_average(data_set, periods=10):
     weights = np.ones(periods) / periods
@@ -88,6 +88,6 @@ if __name__ == "__main__":
         mode="expand", 
         borderaxespad=0.)
 
-    plt.show()
+    # plt.show()
     
-    # plt.savefig("one_direction_transfer.png", bbox_inches="tight") 
+    plt.savefig("prelim_graph.png", bbox_inches="tight", dpi=300) 

@@ -106,6 +106,7 @@ def run(config):
             next_obs, rewards, dones, infos = env.step(actions)
 
             if (ep_i+1) % config.display_every == 0:
+                time.sleep(0.01)
                 env.render()
 
             replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)

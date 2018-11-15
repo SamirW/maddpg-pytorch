@@ -11,14 +11,13 @@ def run(config):
     model_file = str(model_dir / "model.pt")
 
     maddpg = MADDPG.init_from_save(model_file)
-    heatmap(maddpg, title="Agent Policies Before Distillation")
+    heatmap(maddpg, title="Agent Policies Before Distillation", save=config.save)
 
     with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
         replay_buffer = pickle.load(input)
 
-    maddpg.distill(100, 1024, replay_buffer, hard=True)
-    distilled_heatmap(maddpg)
-    # heatmap(maddpg, title="Agent Policies After Distillation")
+    maddpg.distill(256, 1024, replay_buffer, hard=True)
+    distilled_heatmap(maddpg, save=config.save)
 
     plt.show()
 
@@ -29,6 +28,9 @@ if __name__ == '__main__':
                         help="Name of directory to store " +
                              "model/training contents")
     parser.add_argument("run", help="Run number")
+    parser.add_argument("--save",
+                        action="store_true",
+                        default=False)
     config = parser.parse_args()
 
     run(config)
