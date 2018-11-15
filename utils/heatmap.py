@@ -42,6 +42,7 @@ def add_arrows(axes, delta_dict, q_vals = None, rescale=False):
 
 def heatmap(maddpg, title="Agent Policies", save=False):
     fig, axes = plt.subplots(2, 2)
+    plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.4)
 
     num_arrows = 21
     other_poses = [[[0.5, 0.5], [-0.5, -0.5]], [[-0.5, -0.5], [0.5, 0.5]]]
@@ -96,6 +97,7 @@ def heatmap(maddpg, title="Agent Policies", save=False):
 
 def distilled_heatmap(maddpg, save=False):
     fig, axes = plt.subplots(2, 2)
+    plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.4)
 
     num_arrows = 21
     other_poses = [[[0.5, 0.5], [-0.5, -0.5]], [[-0.5, -0.5], [0.5, 0.5]]]
