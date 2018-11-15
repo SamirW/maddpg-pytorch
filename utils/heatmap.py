@@ -190,3 +190,18 @@ def distilled_heatmap2(maddpg):
         ax.add_artist(plt.Circle(lndmrk_poses[1], 0.05, color='black'))
 
     fig.suptitle("Distilled Policy")
+
+def test():
+
+    fig, ax = plt.subplots(1, 1)
+    
+    ax.set_aspect('equal', 'box')
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+
+    ax.add_artist(plt.Circle([-0.5, -0.5], 0.1, color="b"))
+    ax.add_artist(plt.Circle([0.5, 0.5], 0.1, color='r'))
+    ax.add_artist(plt.Circle(lndmrk_poses[0], 0.05, color='grey'))
+    ax.add_artist(plt.Circle(lndmrk_poses[1], 0.05, color='grey'))
+
+    plt.savefig("Example.png", bbox_inches="tight", dpi=300) 

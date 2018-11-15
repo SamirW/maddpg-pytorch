@@ -19,6 +19,8 @@ def run(config):
     maddpg.distill(256, 1024, replay_buffer, hard=True)
     distilled_heatmap(maddpg, save=config.save)
 
+    # test()
+
     plt.show()
 
 if __name__ == '__main__':
