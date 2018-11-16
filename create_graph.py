@@ -7,7 +7,7 @@ plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
-BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip/init_graph/"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip/simple_network/"
 num_seeds = 10
 conv_size = 20
 
@@ -17,6 +17,10 @@ def moving_average(data_set, periods=10):
 
 
 if __name__ == "__main__":
+    datas = []
+    datas_x = []
+    legends = []
+
     """
         Baseline
     """
@@ -27,12 +31,19 @@ if __name__ == "__main__":
         path = \
             BASE_DIR + \
             "env::simple_spread_flip_seed::{}_comment::no_distill_log".format(i+1)
-    
-        data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
-        data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), conv_size)
+        
+        try:
+            data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
+            data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), conv_size)
 
-        no_distill_data.append(data)
-        no_distill_data_ep.append(data_x)
+            no_distill_data.append(data)
+            no_distill_data_ep.append(data_x)
+        except:
+            continue
+
+    datas.append(no_distill_data)  
+    datas_x.append(no_distill_data_ep)
+    legends.append(r'No Distillation')
 
     """
         Distilled
@@ -45,26 +56,43 @@ if __name__ == "__main__":
             BASE_DIR + \
             "env::simple_spread_flip_seed::{}_comment::distill_log".format(i+1)
     
-        data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
-        data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), conv_size)
+        try:
+            data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
+            data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), conv_size)
 
-        distill_data.append(data)
-        distill_data_ep.append(data_x)
+            distill_data.append(data)
+            distill_data_ep.append(data_x)
+        except:
+            continue
+
+    datas.append(distill_data)
+    datas_x.append(distill_data_ep)
+    legends.append(r'Single Hard Distillation')
+
+    """
+        Distilled_256
+    """
+    # distill_256_data = []
+    # distill_256_data_ep = []
+
+    # for i in range(num_seeds):
+    #     path = \
+    #         BASE_DIR + \
+    #         "env::simple_spread_flip_seed::{}_comment::distill_256_log".format(i+1)
+    
+    #     data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
+    #     data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), conv_size)
+
+    #     distill_256_data.append(data)
+    #     distill_256_data_ep.append(data_x)
+
+    # datas.append(distill_256_data)
+    # datas_x.append(distill_256_data_ep)
+    # legends.append(r'Single Hard Distillation (256)')
 
     """
         Plot data
     """
-    datas = [
-        no_distill_data,
-        distill_data]
-    datas_x = [
-        no_distill_data_ep,
-        distill_data_ep]
-
-    legends = [
-        r'No Distillation',
-        r'Single Hard Distillation']
-
     fig, ax = plt.subplots()
     sns.set_style("ticks")
     

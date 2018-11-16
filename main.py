@@ -146,7 +146,7 @@ def run(config):
         if (ep_i+1) == config.hard_distill_ep:
             print("Distilling hard")
             maddpg.prep_rollouts(device='cpu')
-            maddpg.distill(256, 1024, replay_buffer, hard=True)
+            maddpg.distill(128, 512, replay_buffer, hard=True)
 
     maddpg.save(str(run_dir / 'model.pt'))
     env.close()
