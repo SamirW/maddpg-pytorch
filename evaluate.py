@@ -29,10 +29,10 @@ def run(config):
 
     for ep_i in range(config.n_episodes):
         print("Episode %i of %i" % (ep_i + 1, config.n_episodes))
-        obs = env._reset()
+        obs = env._reset(flip=config.flip)
         if config.save_gifs:
             frames = []
-            frames.append(env.render('rgb_array')[0])
+            frames.append(env._render('rgb_array')[0])
         env._render('human')
         for t_i in range(config.episode_length):
             calc_start = time.time()
@@ -46,7 +46,7 @@ def run(config):
             actions = [ac.data.numpy().flatten() for ac in torch_actions]
             obs, rewards, dones, infos = env._step(actions)
             if config.save_gifs:
-                frames.append(env.render('rgb_array')[0])
+                frames.append(env._render('rgb_array')[0])
             calc_end = time.time()
             elapsed = calc_end - calc_start
             if elapsed < ifi:
@@ -79,4 +79,8 @@ if __name__ == '__main__':
 
     config = parser.parse_args()
 
+    config.flip = False
+    run(config)
+
+    config.flip = True
     run(config)

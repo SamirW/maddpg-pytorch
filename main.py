@@ -142,7 +142,7 @@ def run(config):
 
     print("***********Evaluating************")
     flip = True
-    for ep_i in range(config.n_episodes, config.n_episodes+1000, config.n_rollout_threads):
+    for ep_i in range(config.n_episodes, config.n_episodes+1500, config.n_rollout_threads):
 
         obs = env.reset(flip=flip)
         maddpg.prep_rollouts(device='cpu')
