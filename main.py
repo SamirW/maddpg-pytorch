@@ -72,21 +72,18 @@ def run(config):
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
 
         # Flip after 10000 episodes          
-        if ep_i == config.flip_ep:
-            print("Flipping")
-            replay_buffer.reset()
-            flip = True
+        # if ep_i == config.flip_ep:
+        #     print("Flipping")
+        #     replay_buffer.reset()
+        #     flip = True
 
-        # print every so often
-        # if (ep_i+1) % 100 == 0:
-            # print("Episodes %i-%i of %i" % (ep_i + 1,
-                                            # ep_i + 1 + config.n_rollout_threads,
-                                            # config.n_episodes))
         obs = env.reset(flip=flip)
-        # obs.shape = (n_rollout_threads, nagent)(nobs), nobs differs per agent so not tensor\
         maddpg.prep_rollouts(device='cpu')
 
-        explr_pct_remaining = max(0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
+        if ep_i >= config.flip_ep:
+            explr_pct_remaining = max(0, config.n_exploration_eps - (ep_i-config.flip_ep)) / config.n_exploration_eps
+        else:
+            explr_pct_remaining = max(0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
         maddpg.scale_noise(config.final_noise_scale + (config.init_noise_scale - config.final_noise_scale) * explr_pct_remaining)
         maddpg.reset_noise()
 
@@ -112,19 +109,19 @@ def run(config):
             replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
             obs = next_obs
             t += config.n_rollout_threads
-            if (len(replay_buffer) >= config.batch_size and
-                (t % config.steps_per_update) < config.n_rollout_threads):
-                if USE_CUDA:
-                    maddpg.prep_training(device='gpu')
-                else:
-                    maddpg.prep_training(device='cpu')
-                for u_i in range(config.n_rollout_threads):
-                    for a_i in range(maddpg.nagents):
-                        sample = replay_buffer.sample(config.batch_size,
-                                                      to_gpu=USE_CUDA)
-                        maddpg.update(sample, a_i, logger=logger)
-                    maddpg.update_all_targets()
-                maddpg.prep_rollouts(device='cpu')
+            if len(replay_buffer) >= config.batch_size:
+                if (t % config.steps_per_update) < config.n_rollout_threads:
+                    if USE_CUDA:
+                        maddpg.prep_training(device='gpu')
+                    else:
+                        maddpg.prep_training(device='cpu')
+                    for u_i in range(config.n_rollout_threads):
+                        for a_i in range(maddpg.nagents):
+                            sample = replay_buffer.sample(config.batch_size,
+                                                          to_gpu=USE_CUDA)
+                            maddpg.update(sample, a_i, logger=logger)
+                        maddpg.update_all_targets()
+                    maddpg.prep_rollouts(device='cpu')
         ep_rews = replay_buffer.get_average_rewards(
             config.episode_length * config.n_rollout_threads)
         for a_i, a_ep_rew in enumerate(ep_rews):
@@ -138,26 +135,70 @@ def run(config):
             maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
             maddpg.save(str(run_dir / 'model.pt'))
 
-        # distill every so often
-        if (ep_i+1) % config.distill_freq == 0:
-            print("Distilling")
-            maddpg.distill(100, 256, replay_buffer)
+    print("************Distilling***********")
+    if config.hard_distill_ep < 99999:
+        maddpg.prep_rollouts(device='cpu')
+        maddpg.distill(128, 512, replay_buffer, hard=True)
 
-        if (ep_i+1) == config.hard_distill_ep:
-            print("Distilling hard")
-            maddpg.prep_rollouts(device='cpu')
-            maddpg.distill(128, 512, replay_buffer, hard=True)
+    print("***********Evaluating************")
+    flip = True
+    for ep_i in range(config.n_episodes, config.n_episodes+1000, config.n_rollout_threads):
 
+        obs = env.reset(flip=flip)
+        maddpg.prep_rollouts(device='cpu')
+
+        maddpg.scale_noise(0)
+        maddpg.reset_noise()
+
+        for et_i in range(config.episode_length):
+
+            # rearrange observations to be per agent, and convert to torch Variable
+            torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
+                                  requires_grad=False)
+                         for i in range(maddpg.nagents)]
+
+            # get actions as torch Variables
+            torch_agent_actions = maddpg.step(torch_obs, explore=True)
+            # convert actions to numpy arrays
+            agent_actions = [ac.data.numpy() for ac in torch_agent_actions]
+            # rearrange actions to be per environment
+            actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
+            next_obs, rewards, dones, infos = env.step(actions)
+
+            if (ep_i+1) % config.display_every == 0:
+                time.sleep(0.01)
+                env.render()
+
+            replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
+            obs = next_obs
+            t += config.n_rollout_threads
+
+        ep_rews = replay_buffer.get_average_rewards(
+            config.episode_length * config.n_rollout_threads)
+        for a_i, a_ep_rew in enumerate(ep_rews):
+            logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
+
+        logger.add_scalar('joint/mean_episode_rewards', np.sum(ep_rews), ep_i)
+        log[config.log_name].info("Train episode reward {:0.5f} at episode {}".format(np.sum(ep_rews), ep_i))
+
+        if ep_i % config.save_interval < config.n_rollout_threads:
+            os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
+            maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
+            maddpg.save(str(run_dir / 'model.pt'))
+
+    # Save experience replay buffer
+    if config.save_buffer:
+        print("*******Saving Replay Buffer******")
+        import pickle 
+        with open(str(run_dir /'replay_buffer.pkl'), 'wb') as output:
+            pickle.dump(replay_buffer, output, -1)
+
+    print("********Saving and Closing*******")
     maddpg.save(str(run_dir / 'model.pt'))
     env.close()
     logger.export_scalars_to_json(str(log_dir / 'summary.json'))
     logger.close()
 
-    # Save experience replay buffer
-    if config.save_buffer:
-        import pickle 
-        with open(str(run_dir /'replay_buffer.pkl'), 'wb') as output:
-            pickle.dump(replay_buffer, output, -1)
 
 
 if __name__ == '__main__':
