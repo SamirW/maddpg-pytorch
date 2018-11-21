@@ -245,10 +245,31 @@ class MADDPG(object):
                 torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)
                 self.distilled_agent.policy_optimizer.step()
 
+                # Distill critic
+                # self.distilled_agent.critic_optimizer.zero_grad()
+
+                # target = all_critic_logits[j].detach()
+                # student = torch.log(distilled_critic_logits[j])
+                # loss = KL_loss(student, target) / batch_size
+                # loss.backward()
+
+                # torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
+                # self.distilled_agent.critic_optimizer.step()
+
+        # Update student parameters
         for a in self.agents:
             if hard: 
                 # hard_update(a.policy, self.distilled_agent.policy)
                 a.policy.load_state_dict(self.distilled_agent.policy.state_dict())
+
+        # Test
+        # sample = replay_buffer.sample(batch_size, to_gpu=False)
+        # obs, acs, rews, next_obs, dones = sample
+
+        # vf_in = torch.cat((*obs, *acs), dim=1)
+        # for i, crit in enumerate(self.critics):
+        #     print("Agent {}: {}".format(i, crit(vf_in)))
+        # print("Distilled Agent: {}".format(self.distilled_agent.critic(vf_in)))
 
     def prep_training(self, device='gpu'):
         for a in self.agents:
