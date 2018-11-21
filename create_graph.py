@@ -7,7 +7,7 @@ plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
-BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip/simple_network/"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip/eval_graph/"
 num_seeds = 10
 conv_size = 20
 
@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     datas.append(distill_data)
     datas_x.append(distill_data_ep)
-    legends.append(r'Single Hard Distillation')
+    legends.append(r'Single Hard Distillation (No Training after Flip')
 
     """
         Distilled_256
@@ -119,4 +119,4 @@ if __name__ == "__main__":
 
     plt.show()
     
-    # plt.savefig("prelim_graph.png", bbox_inches="tight", dpi=300) 
+    # plt.savefig("eval_graph_no_training.png", bbox_inches="tight", dpi=300) 

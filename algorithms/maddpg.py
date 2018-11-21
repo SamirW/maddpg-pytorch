@@ -60,6 +60,11 @@ class MADDPG(object):
     def target_policies(self):
         return [a.target_policy for a in self.agents]
 
+    @property
+    def critics(self):
+        return [a.critic for a in self.agents]
+    
+
     def scale_noise(self, scale):
         """
         Scale noise for each agent
@@ -206,23 +211,34 @@ class MADDPG(object):
     def distill(self, num_distill, batch_size, replay_buffer, hard=False, temperature=0.01, tau=0.01):
         KL_loss = torch.nn.KLDivLoss(size_average=False)
 
+        # Repeat multiple times
         for i in range(num_distill):
+            # Get samples
             sample = replay_buffer.sample(batch_size, to_gpu=False)
             obs, acs, rews, next_obs, dones = sample
 
-            all_pol_logits = []
-            distilled_logits = []
+            # Find actor outputs for each agent + distilled
+            all_actor_logits = []
+            distilled_actor_logits = []
             for pi, ob in zip(self.policies, obs):
-                all_pol_logits.append(pi(ob))
-                distilled_logits.append(self.distilled_agent.policy(ob))
+                all_actor_logits.append(pi(ob))
+                distilled_actor_logits.append(self.distilled_agent.policy(ob))
+
+            # Find critic outputs for each agent + distilled
+            all_critic_logits = []
+            distilled_critic_logits = []
+            for crit in self.critics:
+                vf_in = torch.cat((*obs, *acs), dim=1)
+                all_critic_logits.append(crit(vf_in))
+                distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
 
             for j, agent in enumerate(self.agents):
-
+                # Distill agent
                 self.distilled_agent.policy_optimizer.zero_grad()
 
                 with torch.no_grad():
-                    target = F.softmax(all_pol_logits[j], dim=1)
-                student = F.log_softmax(distilled_logits[j], dim=1)
+                    target = F.softmax(all_actor_logits[j], dim=1)
+                student = F.log_softmax(distilled_actor_logits[j], dim=1)
                 loss = KL_loss(student, target) / batch_size
                 loss.backward()
 
