@@ -135,12 +135,12 @@ def run(config):
             maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
             maddpg.save(str(run_dir / 'model.pt'))
 
-    print("************Distilling***********")
     if config.hard_distill_ep < 99999:
+        print("************Distilling***********")
         maddpg.prep_rollouts(device='cpu')
         maddpg.distill(128, 512, replay_buffer, hard=True)
 
-    print("***********Evaluating************")
+    # print("***********Evaluating************")
     # flip = True
     # for ep_i in range(config.n_episodes, config.n_episodes+1500, config.n_rollout_threads):
 
