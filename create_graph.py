@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
     datas.append(distill_data)
     datas_x.append(distill_data_ep)
-    legends.append(r'Single Hard Distillation (No Training after Flip')
+    legends.append(r'Single Hard Distillation')
 
     """
         Distilled_256
@@ -108,7 +108,7 @@ if __name__ == "__main__":
 
     plt.xlabel(r'\textbf{Train Episode}', size=14)
     plt.ylabel(r'\textbf{Training Reward}', size=14)
-    plt.title(r'\textbf{Single Hard Distillation Comparison}', size=15)
+    plt.title(r'\textbf{Single Hard Distillation Comparison (No Training after Flip)}', size=15)
 
     legend = plt.legend(
         bbox_to_anchor=(0., 1.07, 1., .102), 
@@ -117,6 +117,6 @@ if __name__ == "__main__":
         mode="expand", 
         borderaxespad=0.)
 
-    plt.show()
+    # plt.show()
     
-    # plt.savefig("eval_graph_no_training.png", bbox_inches="tight", dpi=300) 
+    plt.savefig("figures/eval_graph_no_training.png", bbox_inches="tight", dpi=300) 

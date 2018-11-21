@@ -27,11 +27,15 @@ def run(config):
     maddpg.prep_rollouts(device='cpu')
     ifi = 1 / config.fps  # inter-frame interval
 
+    torch.manual_seed(config.seed)
+    np.random.seed(config.seed)
+
+    frames = []
     for ep_i in range(config.n_episodes):
         print("Episode %i of %i" % (ep_i + 1, config.n_episodes))
         obs = env._reset(flip=config.flip)
         if config.save_gifs:
-            frames = []
+            # frames = []
             frames.append(env._render('rgb_array')[0])
         env._render('human')
         for t_i in range(config.episode_length):
@@ -52,12 +56,12 @@ def run(config):
             if elapsed < ifi:
                 time.sleep(ifi - elapsed)
             env._render('human')
-        if config.save_gifs:
-            gif_num = 0
-            while (gif_path / ('%i_%i.gif' % (gif_num, ep_i))).exists():
-                gif_num += 1
-            imageio.mimsave(str(gif_path / ('%i_%i.gif' % (gif_num, ep_i))),
-                            frames, duration=ifi)
+    if config.save_gifs:
+        gif_num = 0
+        while (gif_path / ('%i_%i.gif' % (gif_num, ep_i))).exists():
+            gif_num += 1
+        imageio.mimsave(str(gif_path / ('%i_%i.gif' % (gif_num, ep_i))),
+                        frames, duration=ifi)
 
     env.close()
 
@@ -75,7 +79,8 @@ if __name__ == '__main__':
                              "rather than final policy")
     parser.add_argument("--n_episodes", default=10, type=int)
     parser.add_argument("--episode_length", default=25, type=int)
-    parser.add_argument("--fps", default=30, type=int)
+    parser.add_argument("--fps", default=20, type=int)
+    parser.add_argument("--seed", default=1, type=int)
 
     config = parser.parse_args()
 
