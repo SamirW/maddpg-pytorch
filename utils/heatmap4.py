@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from torch.autograd import Variable
 
-lndmrk_poses = np.array([[-0.75, -0.75], [0.75, 0.75]])
-default_agent_poses = np.array([[-0.5, -0.5], [0.5, 0.5]])
-flipped_agent_poses = np.array([[0.5, 0.5], [-0.5, -0.5]])
-color = {0: 'b', 1: 'r'}
+lndmrk_poses = np.array([[-0.75, 0.75], [0.75, 0.75], [0.75, -0.75], [-0.75, -0.75]])
+default_agent_poses = [[-0.5, 0.5], [0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]]
+flipped_agent_poses = [[0.5, -0.5], [-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]
+color = {0: 'b', 1: 'r', 2: 'g', 3: [0.65, 0.65, 0.65]}
 
 def get_observations(agent_poses):
     obs_n = []
@@ -44,7 +44,7 @@ def add_arrows(axes, delta_dict, arrow_color="black", q_vals = None, rescale=Fal
         # print(q_vals)
 
 def heatmap(maddpg, title="Agent Policies", save=False):
-    fig, axes = plt.subplots(2, 2)
+    fig, axes = plt.subplots(4, 2)
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.4)
 
     num_arrows = 21
@@ -94,9 +94,8 @@ def heatmap(maddpg, title="Agent Policies", save=False):
     if save:
         plt.savefig("{}.png".format(title), bbox_inches="tight", dpi=300) 
 
-
 def distilled_heatmap(maddpg, save=False):
-    fig, axes = plt.subplots(2, 2)
+    fig, axes = plt.subplots(4, 2)
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.4)
 
     num_arrows = 21
@@ -145,49 +144,6 @@ def distilled_heatmap(maddpg, save=False):
 
     if save:
         plt.savefig("Distilled Policy.png", bbox_inches="tight", dpi=300)
-
-def distilled_heatmap2(maddpg):
-    fig, axes = plt.subplots(1, 2)
-
-    num_arrows = 21
-    other_poses = [[[0.5, 0.5], [-0.5, -0.5]], [[-0.5, -0.5], [0.5, 0.5]]]
-    titles = ["Distilled Agent, State 1", "Distilled Agent, State 2"]
-    
-    for j in range(len(axes)):
-
-        ax = axes[j]
-        ax.set_aspect('equal', 'box')
-        ax.set_xlim(-1, 1)
-        ax.set_ylim(-1, 1)
-        ax.set_title(titles[j])
-
-        delta_dict = dict()
-        other_pos = other_poses[0][j]
-        for x in np.linspace(-1, 1, num_arrows):
-            for y in np.linspace(-1, 1, num_arrows):
-                agent_pos = [x, y]
-
-                agent_poses = np.array([agent_pos, other_pos])
-
-                obs = get_observations(agent_poses)
-                maddpg.prep_rollouts(device='cpu')
-
-                torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, k])),
-                                      requires_grad=False)
-                             for k in range(maddpg.nagents)]
-
-                torch_agent_i_logits = maddpg.distilled_agent.policy(torch_obs[0])
-                action = torch_agent_i_logits.data.numpy()[0]
-
-                delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
-
-        add_arrows(ax, delta_dict, rescale=False)
-
-        ax.add_artist(plt.Circle(other_pos, 0.1, color='grey'))
-        ax.add_artist(plt.Circle(lndmrk_poses[0], 0.05, color='black'))
-        ax.add_artist(plt.Circle(lndmrk_poses[1], 0.05, color='black'))
-
-    fig.suptitle("Distilled Policy")
 
 def test():
 

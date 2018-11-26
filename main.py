@@ -143,10 +143,10 @@ def run(config):
     if config.hard_distill_ep < 99999:
         print("************Distilling***********")
         maddpg.prep_rollouts(device='cpu')
-        maddpg.distill(128, 512, replay_buffer, hard=True)
+        maddpg.distill(256, 1024, replay_buffer, hard=True)
 
     print("***********Evaluating************")
-    for ep_i in range(config.n_episodes, config.n_episodes+1500, config.n_rollout_threads):
+    for ep_i in range(config.n_episodes, config.n_episodes+2500, config.n_rollout_threads):
         if np.random.random() < 0.5:
             flip=True
         else:

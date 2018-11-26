@@ -7,7 +7,8 @@ plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
-BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip/eval_graph/"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip/eval_graph_random/"
+figure_name = "figures/eval_graph_random_no_training.png"
 num_seeds = 10
 conv_size = 20
 
@@ -119,4 +120,4 @@ if __name__ == "__main__":
 
     # plt.show()
     
-    plt.savefig("figures/eval_graph_no_training.png", bbox_inches="tight", dpi=300) 
+    plt.savefig(figure_name, bbox_inches="tight", dpi=300) 
