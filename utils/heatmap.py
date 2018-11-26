@@ -23,7 +23,7 @@ def get_observations(agent_poses):
         obs_n.append(np.concatenate([np.array([0,0])] + [agent_pos] + entity_pos + other_pos + comm))
     return np.array([obs_n])
 
-def add_arrows(axes, delta_dict, q_vals = None, rescale=False):
+def add_arrows(axes, delta_dict, arrow_color="black", q_vals = None, rescale=False):
     max_delta = max(delta_dict.values(), key=(lambda key: np.linalg.norm(key)))
     max_delta_size = np.linalg.norm(max_delta)
 
@@ -34,7 +34,7 @@ def add_arrows(axes, delta_dict, q_vals = None, rescale=False):
         else:
             delta = delta/np.linalg.norm(delta)*0.06
 
-        axes.arrow(pos[0], pos[1], delta[0], delta[1], length_includes_head=True, head_width=0.018)
+        axes.arrow(pos[0], pos[1], delta[0], delta[1], length_includes_head=True, head_width=0.018, color=arrow_color)
 
     if q_vals is not None:
         axes.imshow(q_vals)
@@ -56,6 +56,8 @@ def heatmap(maddpg, title="Agent Policies", save=False):
             ax.set_xlim(-1, 1)
             ax.set_ylim(-1, 1)
             ax.set_title(titles[i][j])
+
+            arrow_color = "b" if i == 0 else "r"
 
             delta_dict = dict()
             other_pos = other_poses[i][j]
@@ -80,7 +82,7 @@ def heatmap(maddpg, title="Agent Policies", save=False):
 
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
 
-            add_arrows(ax, delta_dict, rescale=False)
+            add_arrows(ax, delta_dict, arrow_color=arrow_color, rescale=False)
 
             if i==0:
                 color = 'r'
@@ -112,6 +114,8 @@ def distilled_heatmap(maddpg, save=False):
             ax.set_ylim(-1, 1)
             ax.set_title(titles[i][j])
 
+            arrow_color = "b" if i == 0 else "r"
+
             delta_dict = dict()
             other_pos = other_poses[i][j]
             for x in np.linspace(-1, 1, num_arrows):
@@ -135,7 +139,7 @@ def distilled_heatmap(maddpg, save=False):
 
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
 
-            add_arrows(ax, delta_dict, rescale=False)
+            add_arrows(ax, delta_dict, arrow_color=arrow_color, rescale=False)
 
             if i==0:
                 color = 'r'

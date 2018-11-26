@@ -135,56 +135,63 @@ def run(config):
             maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
             maddpg.save(str(run_dir / 'model.pt'))
 
+        # if (ep_i+1) == config.hard_distill_ep:
+        #     print("************Distilling***********")
+        #     maddpg.prep_rollouts(device='cpu')
+        #     maddpg.distill(128, 512, replay_buffer, hard=True)
+
     if config.hard_distill_ep < 99999:
         print("************Distilling***********")
         maddpg.prep_rollouts(device='cpu')
         maddpg.distill(128, 512, replay_buffer, hard=True)
 
-    # print("***********Evaluating************")
-    # flip = True
-    # for ep_i in range(config.n_episodes, config.n_episodes+1500, config.n_rollout_threads):
+    print("***********Evaluating************")
+    for ep_i in range(config.n_episodes, config.n_episodes+1500, config.n_rollout_threads):
+        if np.random.random() < 0.5:
+            flip=True
+        else:
+            flip=False
+        obs = env.reset(flip=flip)
+        maddpg.prep_rollouts(device='cpu')
 
-    #     obs = env.reset(flip=flip)
-    #     maddpg.prep_rollouts(device='cpu')
+        maddpg.scale_noise(0)
+        maddpg.reset_noise()
 
-    #     maddpg.scale_noise(0)
-    #     maddpg.reset_noise()
+        for et_i in range(config.episode_length):
 
-    #     for et_i in range(config.episode_length):
+            # rearrange observations to be per agent, and convert to torch Variable
+            torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
+                                  requires_grad=False)
+                         for i in range(maddpg.nagents)]
 
-    #         # rearrange observations to be per agent, and convert to torch Variable
-    #         torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
-    #                               requires_grad=False)
-    #                      for i in range(maddpg.nagents)]
+            # get actions as torch Variables
+            torch_agent_actions = maddpg.step(torch_obs, explore=True)
+            # convert actions to numpy arrays
+            agent_actions = [ac.data.numpy() for ac in torch_agent_actions]
+            # rearrange actions to be per environment
+            actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
+            next_obs, rewards, dones, infos = env.step(actions)
 
-    #         # get actions as torch Variables
-    #         torch_agent_actions = maddpg.step(torch_obs, explore=True)
-    #         # convert actions to numpy arrays
-    #         agent_actions = [ac.data.numpy() for ac in torch_agent_actions]
-    #         # rearrange actions to be per environment
-    #         actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
-    #         next_obs, rewards, dones, infos = env.step(actions)
+            if (ep_i+1) % config.display_every == 0:
+                time.sleep(0.01)
+                env.render()
 
-    #         if (ep_i+1) % config.display_every == 0:
-    #             time.sleep(0.01)
-    #             env.render()
+            replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
+            obs = next_obs
+            t += config.n_rollout_threads
 
-    #         replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
-    #         obs = next_obs
-    #         t += config.n_rollout_threads
+        ep_rews = replay_buffer.get_average_rewards(
+            config.episode_length * config.n_rollout_threads)
+        for a_i, a_ep_rew in enumerate(ep_rews):
+            logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
 
-    #     ep_rews = replay_buffer.get_average_rewards(
-    #         config.episode_length * config.n_rollout_threads)
-    #     for a_i, a_ep_rew in enumerate(ep_rews):
-    #         logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
+        logger.add_scalar('joint/mean_episode_rewards', np.sum(ep_rews), ep_i)
+        log[config.log_name].info("Train episode reward {:0.5f} at episode {}".format(np.sum(ep_rews), ep_i))
 
-    #     logger.add_scalar('joint/mean_episode_rewards', np.sum(ep_rews), ep_i)
-    #     log[config.log_name].info("Train episode reward {:0.5f} at episode {}".format(np.sum(ep_rews), ep_i))
-
-    #     if ep_i % config.save_interval < config.n_rollout_threads:
-    #         os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
-    #         maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
-    #         maddpg.save(str(run_dir / 'model.pt'))
+        if ep_i % config.save_interval < config.n_rollout_threads:
+            os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
+            maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
+            maddpg.save(str(run_dir / 'model.pt'))
 
     # Save experience replay buffer
     if config.save_buffer:

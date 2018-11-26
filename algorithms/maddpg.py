@@ -9,6 +9,7 @@ from utils.misc import soft_update, hard_update, average_gradients, onehot_from_
 from utils.agents import DDPGAgent
 
 MSELoss = torch.nn.MSELoss()
+KLLoss = torch.nn.KLDivLoss(size_average=False)
 
 class MADDPG(object):
     """
@@ -209,7 +210,6 @@ class MADDPG(object):
         self.niter += 1
 
     def distill(self, num_distill, batch_size, replay_buffer, hard=False, temperature=0.01, tau=0.01):
-        KL_loss = torch.nn.KLDivLoss(size_average=False)
 
         # Repeat multiple times
         for i in range(num_distill):
@@ -239,30 +239,31 @@ class MADDPG(object):
                 with torch.no_grad():
                     target = F.softmax(all_actor_logits[j], dim=1)
                 student = F.log_softmax(distilled_actor_logits[j], dim=1)
-                loss = KL_loss(student, target) / batch_size
+                loss = KLLoss(student, target) / batch_size
                 loss.backward()
 
                 torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)
                 self.distilled_agent.policy_optimizer.step()
 
                 # Distill critic
-                # self.distilled_agent.critic_optimizer.zero_grad()
+                self.distilled_agent.critic_optimizer.zero_grad()
 
-                # target = all_critic_logits[j].detach()
-                # student = torch.log(distilled_critic_logits[j])
-                # loss = KL_loss(student, target) / batch_size
-                # loss.backward()
+                target = all_critic_logits[j].detach()
+                student = distilled_critic_logits[j]
+                loss = MSELoss(student, target)
+                loss.backward()
 
-                # torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
-                # self.distilled_agent.critic_optimizer.step()
+                torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
+                self.distilled_agent.critic_optimizer.step()
 
         # Update student parameters
         for a in self.agents:
             if hard: 
                 # hard_update(a.policy, self.distilled_agent.policy)
                 a.policy.load_state_dict(self.distilled_agent.policy.state_dict())
+                # a.critic.load_state_dict(self.distilled_agent.critic.state_dict())
 
-        # Test
+        # # Test
         # sample = replay_buffer.sample(batch_size, to_gpu=False)
         # obs, acs, rews, next_obs, dones = sample
 
