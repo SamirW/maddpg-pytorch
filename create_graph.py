@@ -7,8 +7,9 @@ plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
-BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip/eval_graph_random/"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip_4/eval_graph/"
 figure_name = "figures/eval_graph_random_no_training.png"
+save = False
 num_seeds = 10
 conv_size = 20
 
@@ -31,7 +32,7 @@ if __name__ == "__main__":
     for i in range(num_seeds):
         path = \
             BASE_DIR + \
-            "env::simple_spread_flip_seed::{}_comment::no_distill_log".format(i+1)
+            "env::simple_spread_flip_4_seed::{}_comment::no_distill_log".format(i+1)
         
         try:
             data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
@@ -55,7 +56,7 @@ if __name__ == "__main__":
     for i in range(num_seeds):
         path = \
             BASE_DIR + \
-            "env::simple_spread_flip_seed::{}_comment::distill_log".format(i+1)
+            "env::simple_spread_flip_4_seed::{}_comment::distill_log".format(i+1)
     
         try:
             data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
@@ -118,6 +119,6 @@ if __name__ == "__main__":
         mode="expand", 
         borderaxespad=0.)
 
-    # plt.show()
-    
-    plt.savefig(figure_name, bbox_inches="tight", dpi=300) 
+    plt.show()
+    if save:
+        plt.savefig(figure_name, bbox_inches="tight", dpi=300) 

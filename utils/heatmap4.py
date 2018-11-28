@@ -7,7 +7,7 @@ from pathlib import Path
 from torch.autograd import Variable
 
 lndmrk_poses = np.array([[-0.75, 0.75], [0.75, 0.75], [0.75, -0.75], [-0.75, -0.75]])
-default_agent_poses = [[-0.5, 0.5], [0.5, 0.5], [0.5, -0.5], [-0.5, -0.5]]
+default_agent_poses = [[0.5, 0.5], [-0.5, 0.5], [-0.5, -0.5], [0.5, -0.5]]
 flipped_agent_poses = [[0.5, -0.5], [-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]
 color = {0: 'b', 1: 'r', 2: 'g', 3: [0.65, 0.65, 0.65]}
 
@@ -130,7 +130,7 @@ def distilled_heatmap(maddpg, save=False):
 
                     torch_agent_i_logits = maddpg.distilled_agent.policy(torch_obs[i])
                     action = torch_agent_i_logits.data.numpy()[0]
-
+                    print(action)
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
 
             add_arrows(ax, delta_dict, arrow_color=color[i], rescale=False)

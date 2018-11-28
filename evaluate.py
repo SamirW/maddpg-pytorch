@@ -46,6 +46,7 @@ def run(config):
                          for i in range(maddpg.nagents)]
             # get actions as torch Variables
             torch_actions = maddpg.step(torch_obs, explore=False)
+            print([torch.argmax(a).numpy().item()==0 for a in torch_actions])
             # convert actions to numpy arrays
             actions = [ac.data.numpy().flatten() for ac in torch_actions]
             obs, rewards, dones, infos = env._step(actions)
@@ -56,12 +57,12 @@ def run(config):
             if elapsed < ifi:
                 time.sleep(ifi - elapsed)
             env._render('human')
-    if config.save_gifs:
-        gif_num = 0
-        while (gif_path / ('%i_%i.gif' % (gif_num, ep_i))).exists():
-            gif_num += 1
-        imageio.mimsave(str(gif_path / ('%i_%i.gif' % (gif_num, ep_i))),
-                        frames, duration=ifi)
+        if config.save_gifs:
+            gif_num = 0
+            while (gif_path / ('%i_%i.gif' % (gif_num, ep_i))).exists():
+                gif_num += 1
+            imageio.mimsave(str(gif_path / ('%i_%i.gif' % (gif_num, ep_i))),
+                            frames, duration=ifi)
 
     env.close()
 
@@ -79,13 +80,14 @@ if __name__ == '__main__':
                              "rather than final policy")
     parser.add_argument("--n_episodes", default=10, type=int)
     parser.add_argument("--episode_length", default=25, type=int)
-    parser.add_argument("--fps", default=20, type=int)
+    parser.add_argument("--fps", default=30, type=int)
     parser.add_argument("--seed", default=1, type=int)
+    parser.add_argument("--flip", action="store_true")
 
     config = parser.parse_args()
 
-    config.flip = False
+    # config.flip = False
     run(config)
 
-    config.flip = True
-    run(config)
+    # config.flip = True
+    # run(config)
