@@ -7,11 +7,15 @@ plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
-BASE_DIR = "/home/samir/maddpg-pytorch/models/simple_spread_flip_4/eval_graph/"
-figure_name = "figures/eval_graph_random_no_training.png"
-save = False
-num_seeds = 10
-conv_size = 20
+
+ENV = "simple_spread"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
+FIGURE_NAME = "figures/eval_graph_random_no_training.png"
+
+CONV_SIZE = 30
+NUM_SEEDS = 10
+
+SAVE = False
 
 def moving_average(data_set, periods=10):
     weights = np.ones(periods) / periods
@@ -29,14 +33,14 @@ if __name__ == "__main__":
     no_distill_data = []
     no_distill_data_ep = []
 
-    for i in range(num_seeds):
+    for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
-            "env::simple_spread_flip_4_seed::{}_comment::no_distill_log".format(i+1)
+            "env::{}_seed::{}_comment::no_distill_log".format(ENV, i+1)
         
         try:
-            data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
-            data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), conv_size)
+            data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+            data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
             no_distill_data.append(data)
             no_distill_data_ep.append(data_x)
@@ -53,14 +57,14 @@ if __name__ == "__main__":
     distill_data = []
     distill_data_ep = []
 
-    for i in range(num_seeds):
+    for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
-            "env::simple_spread_flip_4_seed::{}_comment::distill_log".format(i+1)
+            "env::{}_seed::{}_comment::distill_log".format(ENV, i+1)
     
         try:
-            data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
-            data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), conv_size)
+            data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+            data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
             distill_data.append(data)
             distill_data_ep.append(data_x)
@@ -71,19 +75,19 @@ if __name__ == "__main__":
     datas_x.append(distill_data_ep)
     legends.append(r'Single Hard Distillation')
 
-    """
-        Distilled_256
-    """
+    # """
+    #     Distilled_256
+    # """
     # distill_256_data = []
     # distill_256_data_ep = []
 
-    # for i in range(num_seeds):
+    # for i in range(NUM_SEEDS):
     #     path = \
     #         BASE_DIR + \
-    #         "env::simple_spread_flip_seed::{}_comment::distill_256_log".format(i+1)
+    #         "env::{}_seed::{}_comment::distill_256_log".format(ENV, i+1)
     
-    #     data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), conv_size)
-    #     data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), conv_size)
+    #     data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+    #     data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
     #     distill_256_data.append(data)
     #     distill_256_data_ep.append(data_x)
@@ -120,5 +124,5 @@ if __name__ == "__main__":
         borderaxespad=0.)
 
     plt.show()
-    if save:
-        plt.savefig(figure_name, bbox_inches="tight", dpi=300) 
+    if SAVE:
+        plt.savefig(FIGURE_NAME, bbox_inches="tight", dpi=300) 

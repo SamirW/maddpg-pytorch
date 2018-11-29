@@ -71,13 +71,13 @@ def run(config):
     print("********Starting training********")
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
 
-        # Flip after 10000 episodes          
-        if ep_i == config.flip_ep:
-            print("Flipping")
-            replay_buffer.reset()
-            flip = True
+        # # Flip after 10000 episodes          
+        # if ep_i == config.flip_ep:
+        #     print("Flipping")
+        #     replay_buffer.reset()
+        #     flip = True
 
-        obs = env.reset(flip=flip)
+        obs = env.reset()
         maddpg.prep_rollouts(device='cpu')
 
         if ep_i >= config.flip_ep:
@@ -140,18 +140,17 @@ def run(config):
         #     maddpg.prep_rollouts(device='cpu')
         #     maddpg.distill(128, 512, replay_buffer, hard=True)
 
+    print("***********Resettting************")
+    maddpg.agents[0].reset()
+
     if config.hard_distill_ep < 99999:
         print("************Distilling***********")
         maddpg.prep_rollouts(device='cpu')
-        maddpg.distill(64, 1024, replay_buffer, hard=True)
+        maddpg.distill(128, 1024, replay_buffer, hard=True)
 
     print("***********Evaluating************")
-    for ep_i in range(config.n_episodes, config.n_episodes+1000, config.n_rollout_threads):
-        if np.random.random() < 0.5:
-            flip=True
-        else:
-            flip=False
-        obs = env.reset(flip=flip)
+    for ep_i in range(config.n_episodes, config.n_episodes+2500, config.n_rollout_threads):
+        obs = env.reset()
         maddpg.prep_rollouts(device='cpu')
 
         maddpg.scale_noise(0)
