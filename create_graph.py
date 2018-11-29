@@ -10,12 +10,12 @@ plot.rcParams.update(params)
 
 ENV = "simple_spread"
 BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
-FIGURE_NAME = "figures/eval_graph_random_no_training.png"
+FIGURE_NAME = "figures/reset_naive_sharing.png"
 
 CONV_SIZE = 30
 NUM_SEEDS = 10
 
-SAVE = False
+SAVE = True
 
 def moving_average(data_set, periods=10):
     weights = np.ones(periods) / periods
@@ -123,6 +123,6 @@ if __name__ == "__main__":
         mode="expand", 
         borderaxespad=0.)
 
-    plt.show()
+    # plt.show()
     if SAVE:
         plt.savefig(FIGURE_NAME, bbox_inches="tight", dpi=300) 

@@ -72,6 +72,7 @@ class DDPGAgent(object):
             if explore:
                 action = gumbel_softmax(action, hard=True)
             else:
+                print('yes')
                 action = onehot_from_logits(action)
         else:  # continuous action
             if explore:

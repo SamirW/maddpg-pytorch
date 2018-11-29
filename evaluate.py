@@ -1,6 +1,7 @@
 import argparse
 import torch
 import time
+import pickle
 import imageio
 import numpy as np
 from pathlib import Path
@@ -10,13 +11,13 @@ from algorithms.maddpg import MADDPG
 
 
 def run(config):
-    model_path = (Path('./models') / config.env_id / config.model_name /
+    model_dir = (Path('./models') / config.env_id / config.model_name /
                   ('run%i' % config.run_num))
     if config.incremental is not None:
-        model_path = model_path / 'incremental' / ('model_ep%i.pt' %
+        model_path = model_dir / 'incremental' / ('model_ep%i.pt' %
                                                    config.incremental)
     else:
-        model_path = model_path / 'model.pt'
+        model_path = model_dir / 'model.pt'
 
     if config.save_gifs:
         gif_path = model_path.parent / 'gifs'
@@ -29,6 +30,12 @@ def run(config):
 
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
+
+    if config.distill:
+        print("************Distilling***********")
+        with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
+            replay_buffer = pickle.load(input)
+        maddpg.distill(512, 1024, replay_buffer, hard=True)
 
     frames = []
     for ep_i in range(config.n_episodes):
@@ -46,7 +53,7 @@ def run(config):
                          for i in range(maddpg.nagents)]
             # get actions as torch Variables
             torch_actions = maddpg.step(torch_obs, explore=False)
-            print([torch.argmax(a).numpy().item()==0 for a in torch_actions])
+            # print([torch.argmax(a).numpy().item()==0 for a in torch_actions])
             # convert actions to numpy arrays
             actions = [ac.data.numpy().flatten() for ac in torch_actions]
             obs, rewards, dones, infos = env._step(actions)
@@ -83,6 +90,7 @@ if __name__ == '__main__':
     parser.add_argument("--fps", default=30, type=int)
     parser.add_argument("--seed", default=1, type=int)
     parser.add_argument("--flip", action="store_true")
+    parser.add_argument("--distill", action="store_true")
 
     config = parser.parse_args()
 
