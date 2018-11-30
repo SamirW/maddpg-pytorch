@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 import numpy as np
+from torch.distributions import Categorical
 from torch import Tensor
 from torch.autograd import Variable
 from gym.spaces import Box, Discrete
@@ -9,7 +10,7 @@ from utils.misc import soft_update, hard_update, average_gradients, onehot_from_
 from utils.agents import DDPGAgent
 
 MSELoss = torch.nn.MSELoss()
-KLLoss = torch.nn.KLDivLoss(size_average=False)
+KLLoss = torch.nn.KLDivLoss(size_average=False, reduce=False)
 
 class MADDPG(object):
     """
@@ -238,8 +239,13 @@ class MADDPG(object):
 
                 with torch.no_grad():
                     target = F.softmax(all_actor_logits[j], dim=1)
+                    entropy = Categorical(probs=target).entropy()
+                    weight = (1-entropy/agent.max_entropy)
                 student = F.log_softmax(distilled_actor_logits[j], dim=1)
                 loss = KLLoss(student, target) / batch_size
+                loss = loss.sum(dim=1)
+                loss = loss * weight
+                loss = loss.sum()
                 loss.backward()
 
                 torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)

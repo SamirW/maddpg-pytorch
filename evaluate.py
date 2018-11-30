@@ -35,7 +35,7 @@ def run(config):
         print("************Distilling***********")
         with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
             replay_buffer = pickle.load(input)
-        maddpg.distill(512, 1024, replay_buffer, hard=True)
+        maddpg.distill(2048, 1024, replay_buffer, hard=True)
 
     frames = []
     for ep_i in range(config.n_episodes):
@@ -64,12 +64,12 @@ def run(config):
             if elapsed < ifi:
                 time.sleep(ifi - elapsed)
             env._render('human')
-        if config.save_gifs:
-            gif_num = 0
-            while (gif_path / ('%i_%i.gif' % (gif_num, ep_i))).exists():
-                gif_num += 1
-            imageio.mimsave(str(gif_path / ('%i_%i.gif' % (gif_num, ep_i))),
-                            frames, duration=ifi)
+    if config.save_gifs:
+        gif_num = 0
+        while (gif_path / ('%i_%i.gif' % (gif_num, ep_i))).exists():
+            gif_num += 1
+        imageio.mimsave(str(gif_path / ('%i_%i.gif' % (gif_num, ep_i))),
+                        frames, duration=ifi)
 
     env.close()
 

@@ -10,11 +10,12 @@ plot.rcParams.update(params)
 
 ENV = "simple_spread"
 BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
-FIGURE_NAME = "figures/reset_naive_sharing.png"
+FIGURE_NAME = "figures/reset_sharing.png"
 
 CONV_SIZE = 30
 NUM_SEEDS = 10
 
+SHOW = False
 SAVE = True
 
 def moving_average(data_set, periods=10):
@@ -73,28 +74,31 @@ if __name__ == "__main__":
 
     datas.append(distill_data)
     datas_x.append(distill_data_ep)
-    legends.append(r'Single Hard Distillation')
+    legends.append(r'Naive Distillation')
 
-    # """
-    #     Distilled_256
-    # """
-    # distill_256_data = []
-    # distill_256_data_ep = []
+    """
+        Entropy Distillation
+    """
+    entropy_distill_data = []
+    entropy_distill_data_ep = []
 
-    # for i in range(NUM_SEEDS):
-    #     path = \
-    #         BASE_DIR + \
-    #         "env::{}_seed::{}_comment::distill_256_log".format(ENV, i+1)
+    for i in range(NUM_SEEDS):
+        path = \
+            BASE_DIR + \
+            "env::{}_seed::{}_comment::entropy_distill_log".format(ENV, i+1)
     
-    #     data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
-    #     data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+        try:
+            data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+            data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
-    #     distill_256_data.append(data)
-    #     distill_256_data_ep.append(data_x)
+            entropy_distill_data.append(data)
+            entropy_distill_data_ep.append(data_x)
+        except:
+            continue
 
-    # datas.append(distill_256_data)
-    # datas_x.append(distill_256_data_ep)
-    # legends.append(r'Single Hard Distillation (256)')
+    datas.append(entropy_distill_data)
+    datas_x.append(entropy_distill_data_ep)
+    legends.append(r'Entropy-Weighted Distillation')
 
     """
         Plot data
@@ -114,7 +118,7 @@ if __name__ == "__main__":
 
     plt.xlabel(r'\textbf{Train Episode}', size=14)
     plt.ylabel(r'\textbf{Training Reward}', size=14)
-    plt.title(r'\textbf{Single Hard Distillation Comparison (No Training after Flip)}', size=15)
+    plt.title(r'\textbf{Distillation Comparison (No Training after Reset)}', size=15)
 
     legend = plt.legend(
         bbox_to_anchor=(0., 1.07, 1., .102), 
@@ -123,6 +127,8 @@ if __name__ == "__main__":
         mode="expand", 
         borderaxespad=0.)
 
-    # plt.show()
+    if SHOW:
+        plt.show()
+
     if SAVE:
         plt.savefig(FIGURE_NAME, bbox_inches="tight", dpi=300) 

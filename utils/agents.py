@@ -1,6 +1,9 @@
+import torch
 from torch import Tensor
 from torch.autograd import Variable
 from torch.optim import Adam
+from torch.distributions import Categorical
+import numpy as np
 from .networks import MLPNetwork, SimpleMLPNetwork
 from .misc import hard_update, gumbel_softmax, onehot_from_logits
 from .noise import OUNoise
@@ -41,6 +44,7 @@ class DDPGAgent(object):
         else:
             self.exploration = 0.3  # epsilon for eps-greedy
         self.discrete_action = discrete_action
+        self.max_entropy = Categorical(logits=Tensor(np.ones((1,num_out_pol)))).entropy()
 
     def reset_noise(self):
         if not self.discrete_action:
@@ -72,7 +76,11 @@ class DDPGAgent(object):
             if explore:
                 action = gumbel_softmax(action, hard=True)
             else:
-                print('yes')
+                # with torch.no_grad():
+                #     entropy = Categorical(logits=action).entropy()
+                #     entropy_ratio = entropy/self.max_entropy
+                #     weight = (1-entropy_ratio).numpy()
+                #     print(weight)
                 action = onehot_from_logits(action)
         else:  # continuous action
             if explore:

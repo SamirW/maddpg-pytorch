@@ -146,7 +146,7 @@ def run(config):
     if config.hard_distill_ep < 99999:
         print("************Distilling***********")
         maddpg.prep_rollouts(device='cpu')
-        maddpg.distill(256, 1024, replay_buffer, hard=True)
+        maddpg.distill(2048, 1024, replay_buffer, hard=True)
 
     print("***********Evaluating************")
     for ep_i in range(config.n_episodes, config.n_episodes+2000, config.n_rollout_threads):
