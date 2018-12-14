@@ -212,6 +212,7 @@ class MADDPG(object):
 
     def distill(self, num_distill, batch_size, replay_buffer, hard=False, temperature=0.01, tau=0.01):
 
+        # replay_buffer.prepare_weights()
         # Repeat multiple times
         for i in range(num_distill):
             # Get samples
@@ -234,6 +235,10 @@ class MADDPG(object):
                 distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
 
             for j, agent in enumerate(self.agents):
+                # Skip agent zero
+                # if j == 0:
+                    # continue
+
                 # Distill agent
                 self.distilled_agent.policy_optimizer.zero_grad()
 

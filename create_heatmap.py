@@ -11,11 +11,14 @@ def run(config):
     model_file = str(model_dir / "model.pt")
 
     maddpg = MADDPG.init_from_save(model_file)
-    heatmap(maddpg, title="Agent Policies Before Distillation2", save=config.save)
+    print("Creating heatmap")
+    heatmap(maddpg, title="Agent Policies Before Distillation", save=config.save)
 
+    print("Distilling")
     with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
         replay_buffer = pickle.load(input)
 
+    print("Creating distilled heatmap")
     maddpg.distill(256, 1024, replay_buffer, hard=True)
     distilled_heatmap(maddpg, save=config.save)
 

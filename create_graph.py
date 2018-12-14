@@ -10,9 +10,9 @@ plot.rcParams.update(params)
 
 ENV = "simple_spread"
 BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
-FIGURE_NAME = "figures/reset_sharing.png"
+FIGURE_NAME = "figures/reset_sharing_separate.png"
 
-CONV_SIZE = 30
+CONV_SIZE = 50
 NUM_SEEDS = 10
 
 SHOW = False
@@ -101,6 +101,30 @@ if __name__ == "__main__":
     legends.append(r'Entropy-Weighted Distillation')
 
     """
+        Separate ER Distillation
+    """
+    separate_replay = []
+    separate_replay_ep = []
+
+    for i in range(NUM_SEEDS):
+        path = \
+            BASE_DIR + \
+            "env::{}_seed::{}_comment::separate_replay_distilled_log".format(ENV, i+1)
+    
+        try:
+            data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+            data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+
+            separate_replay.append(data)
+            separate_replay_ep.append(data_x)
+        except:
+            continue
+
+    datas.append(separate_replay)
+    datas_x.append(separate_replay_ep)
+    legends.append(r'Separate ER Distillation')
+
+    """
         Plot data
     """
     fig, ax = plt.subplots()
@@ -127,8 +151,8 @@ if __name__ == "__main__":
         mode="expand", 
         borderaxespad=0.)
 
-    if SHOW:
-        plt.show()
-
     if SAVE:
         plt.savefig(FIGURE_NAME, bbox_inches="tight", dpi=300) 
+
+    if SHOW:
+        plt.show()

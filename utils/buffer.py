@@ -1,6 +1,7 @@
 import numpy as np
 from torch import Tensor
 from torch.autograd import Variable
+from scipy.spatial.distance import pdist, squareform
 
 class ReplayBuffer(object):
     """
@@ -32,6 +33,9 @@ class ReplayBuffer(object):
 
         self.filled_i = 0  # index of first empty location in buffer (last index when full)
         self.curr_i = 0  # current index to write to (ovewrite oldest data)
+
+        self.obs_numpy = None
+        self.max_kde = None
 
     def __len__(self):
         return self.filled_i
@@ -106,3 +110,19 @@ class ReplayBuffer(object):
         else:
             inds = np.arange(max(0, self.curr_i - N), self.curr_i)
         return [self.rew_buffs[i][inds].mean() for i in range(self.num_agents)]
+
+    def prepare_weights(self):
+        self.obs_numpy = np.array(self.obs_buffs)
+
+    def KDE(self, agent_index, sample):
+        assert self.obs_numpy is not None
+        assert self.obs_numpy.shape[2] == sample.shape[1]
+
+        data = self.obs_numpy[agent_index]
+        diff = data - sample
+        dists_sq = np.linalg.norm(diff, axis=1)**2
+        h = np.median(dists_sq)
+        h = np.sqrt(0.5 * h / np.log(data.shape[0] + 1))
+
+        kernels = np.exp(-1*dists_sq / h**2 / 2)
+        return np.mean(kernels)
