@@ -227,29 +227,29 @@ class MADDPG(object):
                 distilled_actor_logits.append(self.distilled_agent.policy(ob))
 
             # Find critic outputs for each agent + distilled
-            all_critic_logits = []
-            distilled_critic_logits = []
-            for crit in self.critics:
-                vf_in = torch.cat((*obs, *acs), dim=1)
-                all_critic_logits.append(crit(vf_in))
-                distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
+            # all_critic_logits = []
+            # distilled_critic_logits = []
+            # for crit in self.critics:
+            #     vf_in = torch.cat((*obs, *acs), dim=1)
+            #     all_critic_logits.append(crit(vf_in))
+            #     distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
 
             for j, agent in enumerate(self.agents):
                 # Skip agent zero
-                # if j == 0:
-                    # continue
+                if j == 0:
+                    continue
 
                 # Distill agent
                 self.distilled_agent.policy_optimizer.zero_grad()
 
                 with torch.no_grad():
                     target = F.softmax(all_actor_logits[j], dim=1)
-                    entropy = Categorical(probs=target).entropy()
-                    weight = (1-entropy/agent.max_entropy)
+                    # entropy = Categorical(probs=target).entropy()
+                    # weight = (1-entropy/agent.max_entropy)
                 student = F.log_softmax(distilled_actor_logits[j], dim=1)
                 loss = KLLoss(student, target) / batch_size
                 loss = loss.sum(dim=1)
-                loss = loss * weight
+                # loss = loss * weight
                 loss = loss.sum()
                 loss.backward()
 
@@ -257,15 +257,15 @@ class MADDPG(object):
                 self.distilled_agent.policy_optimizer.step()
 
                 # Distill critic
-                self.distilled_agent.critic_optimizer.zero_grad()
+                # self.distilled_agent.critic_optimizer.zero_grad()
 
-                target = all_critic_logits[j].detach()
-                student = distilled_critic_logits[j]
-                loss = MSELoss(student, target)
-                loss.backward()
+                # target = all_critic_logits[j].detach()
+                # student = distilled_critic_logits[j]
+                # loss = MSELoss(student, target)
+                # loss.backward()
 
-                torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
-                self.distilled_agent.critic_optimizer.step()
+                # torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
+                # self.distilled_agent.critic_optimizer.step()
 
         # Update student parameters
         for a in self.agents:
