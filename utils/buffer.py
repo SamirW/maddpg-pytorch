@@ -114,15 +114,19 @@ class ReplayBuffer(object):
     def prepare_weights(self):
         self.obs_numpy = np.array(self.obs_buffs)
 
-    def KDE(self, agent_index, sample):
+    def KDE(self, agent_index, samples):
         assert self.obs_numpy is not None
-        assert self.obs_numpy.shape[2] == sample.shape[1]
+        assert self.obs_numpy.shape[2] == samples.shape[1]
+        inds = np.random.choice(np.arange(self.filled_i), size=5000,
+                                replace=False)
+        data = self.obs_numpy[agent_index][inds]       
 
-        data = self.obs_numpy[agent_index]
-        diff = data - sample
-        dists_sq = np.linalg.norm(diff, axis=1)**2
-        h = np.median(dists_sq)
-        h = np.sqrt(0.5 * h / np.log(data.shape[0] + 1))
+        data_tiled = np.tile(data, (samples.shape[0], 1, 1))
+        diffs = data_tiled - samples[:, None]
+        dists_sq = np.linalg.norm(diffs, axis=2)**2
+
+        h = np.median(dists_sq, axis=1)
+        h = np.sqrt(0.5 * h[:, None] / np.log(data.shape[0] + 1))
 
         kernels = np.exp(-1*dists_sq / h**2 / 2)
-        return np.mean(kernels)
+        return Tensor(np.mean(kernels, axis=1))

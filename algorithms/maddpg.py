@@ -109,7 +109,7 @@ class MADDPG(object):
         vf_in = torch.cat((*obs, *act), dim=1)
         return [a.critic(vf_in) for a in self.agents]
 
-    def update(self, sample, agent_i, parallel=False, logger=None):
+    def update(self, sample, agent_i, parallel=False, logger=None, skip_actor=False):
         """
         Update parameters of agent model based on sample from replay buffer
         Inputs:
@@ -161,39 +161,43 @@ class MADDPG(object):
         torch.nn.utils.clip_grad_norm_(curr_agent.critic.parameters(), 0.5)
         curr_agent.critic_optimizer.step()
 
-        curr_agent.policy_optimizer.zero_grad()
+        if not skip_actor:
+            curr_agent.policy_optimizer.zero_grad()
 
-        if self.discrete_action:
-            # Forward pass as if onehot (hard=True) but backprop through a differentiable
-            # Gumbel-Softmax sample. The MADDPG paper uses the Gumbel-Softmax trick to backprop
-            # through discrete categorical samples, but I'm not sure if that is
-            # correct since it removes the assumption of a deterministic policy for
-            # DDPG. Regardless, discrete policies don't seem to learn properly without it.
-            curr_pol_out = curr_agent.policy(obs[agent_i])
-            curr_pol_vf_in = gumbel_softmax(curr_pol_out, hard=True)
+            if self.discrete_action:
+                # Forward pass as if onehot (hard=True) but backprop through a differentiable
+                # Gumbel-Softmax sample. The MADDPG paper uses the Gumbel-Softmax trick to backprop
+                # through discrete categorical samples, but I'm not sure if that is
+                # correct since it removes the assumption of a deterministic policy for
+                # DDPG. Regardless, discrete policies don't seem to learn properly without it.
+                curr_pol_out = curr_agent.policy(obs[agent_i])
+                curr_pol_vf_in = gumbel_softmax(curr_pol_out, hard=True)
+            else:
+                curr_pol_out = curr_agent.policy(obs[agent_i])
+                curr_pol_vf_in = curr_pol_out
+            if self.alg_types[agent_i] == 'MADDPG':
+                all_pol_acs = []
+                for i, pi, ob in zip(range(self.nagents), self.policies, obs):
+                    if i == agent_i:
+                        all_pol_acs.append(curr_pol_vf_in)
+                    elif self.discrete_action:
+                        all_pol_acs.append(onehot_from_logits(pi(ob)))
+                    else:
+                        all_pol_acs.append(pi(ob))
+                vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
+            else:  # DDPG
+                vf_in = torch.cat((obs[agent_i], curr_pol_vf_in),
+                                  dim=1)
+            pol_loss = -curr_agent.critic(vf_in).mean()
+            pol_loss += (curr_pol_out**2).mean() * 1e-3
+            pol_loss.backward()
+            if parallel:
+                average_gradients(curr_agent.policy)
+            torch.nn.utils.clip_grad_norm_(curr_agent.policy.parameters(), 0.5)
+            curr_agent.policy_optimizer.step()
         else:
-            curr_pol_out = curr_agent.policy(obs[agent_i])
-            curr_pol_vf_in = curr_pol_out
-        if self.alg_types[agent_i] == 'MADDPG':
-            all_pol_acs = []
-            for i, pi, ob in zip(range(self.nagents), self.policies, obs):
-                if i == agent_i:
-                    all_pol_acs.append(curr_pol_vf_in)
-                elif self.discrete_action:
-                    all_pol_acs.append(onehot_from_logits(pi(ob)))
-                else:
-                    all_pol_acs.append(pi(ob))
-            vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
-        else:  # DDPG
-            vf_in = torch.cat((obs[agent_i], curr_pol_vf_in),
-                              dim=1)
-        pol_loss = -curr_agent.critic(vf_in).mean()
-        pol_loss += (curr_pol_out**2).mean() * 1e-3
-        pol_loss.backward()
-        if parallel:
-            average_gradients(curr_agent.policy)
-        torch.nn.utils.clip_grad_norm_(curr_agent.policy.parameters(), 0.5)
-        curr_agent.policy_optimizer.step()
+            pol_loss = 0
+
         if logger is not None:
             logger.add_scalars('agent%i/losses' % agent_i,
                                {'vf_loss': vf_loss,
@@ -211,13 +215,15 @@ class MADDPG(object):
         self.niter += 1
 
     def distill(self, num_distill, batch_size, replay_buffer, hard=False, temperature=0.01, tau=0.01):
+        replay_buffer.prepare_weights()
 
-        # replay_buffer.prepare_weights()
         # Repeat multiple times
         for i in range(num_distill):
+            if (i % 10) == 0:
+                print(i)
             # Get samples
             sample = replay_buffer.sample(batch_size, to_gpu=False)
-            obs, acs, rews, next_obs, dones = sample
+            obs, acs, _, _, _ = sample
 
             # Find actor outputs for each agent + distilled
             all_actor_logits = []
@@ -227,17 +233,17 @@ class MADDPG(object):
                 distilled_actor_logits.append(self.distilled_agent.policy(ob))
 
             # Find critic outputs for each agent + distilled
-            all_critic_logits = []
-            distilled_critic_logits = []
-            for crit in self.critics:
-                vf_in = torch.cat((*obs, *acs), dim=1)
-                all_critic_logits.append(crit(vf_in))
-                distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
+            # all_critic_logits = []
+            # distilled_critic_logits = []
+            # for crit in self.critics:
+            #     vf_in = torch.cat((*obs, *acs), dim=1)
+            #     all_critic_logits.append(crit(vf_in))
+            #     distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
 
             for j, agent in enumerate(self.agents):
                 # Skip agent zero
-                # if j == 0:
-                    # continue
+                if j == 0:
+                    continue
 
                 # Distill agent
                 self.distilled_agent.policy_optimizer.zero_grad()
@@ -246,6 +252,7 @@ class MADDPG(object):
                     target = F.softmax(all_actor_logits[j], dim=1)
                     # entropy = Categorical(probs=target).entropy()
                     # weight = (1-entropy/agent.max_entropy)
+                    # weight = replay_buffer.KDE(j, obs[j].data.numpy())
                 student = F.log_softmax(distilled_actor_logits[j], dim=1)
                 loss = KLLoss(student, target) / batch_size
                 # loss = loss.sum(dim=1)

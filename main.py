@@ -119,7 +119,10 @@ def run(config):
                         for a_i in range(maddpg.nagents):
                             sample = replay_buffer.sample(config.batch_size,
                                                           to_gpu=USE_CUDA)
-                            maddpg.update(sample, a_i, logger=logger)
+                            if ((ep_i > config.flip_ep) and (ep_i < (config.flip_ep + 1000))):
+                                maddpg.update(sample, a_i, logger=logger, skip_actor=True)
+                            else:
+                                maddpg.update(sample, a_i, logger=logger)
                         maddpg.update_all_targets()
                     maddpg.prep_rollouts(device='cpu')
         ep_rews = replay_buffer.get_average_rewards(
