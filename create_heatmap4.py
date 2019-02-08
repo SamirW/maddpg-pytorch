@@ -10,18 +10,19 @@ def run(config):
     model_dir = Path('./models') / config.env_id / config.model_name / "run{}".format(config.run)
     model_file = str(model_dir / "model.pt")
 
+    print("Loading environment")
     maddpg = MADDPG.init_from_save(model_file)
+    with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
+        replay_buffer = pickle.load(input)
 
     print("Creating heatmap")
     heatmap(maddpg, title="Agent Policies Before Distillation", save=config.save)
 
-    print("Distilling")
-    with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
-        replay_buffer = pickle.load(input)
-    maddpg.distill(256, 1024, replay_buffer, hard=True)
+    # print("Distilling")
+    # maddpg.distill(256, 512, replay_buffer, hard=True)
     
-    print("Creating distilled heatmap")
-    distilled_heatmap(maddpg, save=config.save)
+    # print("Creating distilled heatmap")
+    # distilled_heatmap(maddpg, save=config.save)
 
     plt.show()
 

@@ -8,15 +8,15 @@ plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
-ENV = "simple_spread"
-BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
-FIGURE_NAME = "figures/reset_sharing_separate.png"
+ENV = "simple_spread_flip_4"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph_4/"
+FIGURE_NAME = "figures/4_agent.png"
 
 CONV_SIZE = 50
 NUM_SEEDS = 10
 
-SHOW = False
-SAVE = True
+SHOW = True
+SAVE = False
 
 def moving_average(data_set, periods=10):
     weights = np.ones(periods) / periods
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
-            "env::{}_seed::{}_comment::no_distill_log".format(ENV, i+1)
+            "env::{}_seed::{}_comment::baseline_log".format(ENV, i+1)
         
         try:
             data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     datas.append(no_distill_data)  
     datas_x.append(no_distill_data_ep)
-    legends.append(r'No Distillation')
+    legends.append(r'Learn from Scratch')
 
     """
         Distilled
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
-            "env::{}_seed::{}_comment::distill_log".format(ENV, i+1)
+            "env::{}_seed::{}_comment::distill_eval_log".format(ENV, i+1)
     
         try:
             data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     datas.append(distill_data)
     datas_x.append(distill_data_ep)
-    legends.append(r'Naive Distillation')
+    legends.append(r'Distill and Evaluate (No Learning)')
 
     """
         Entropy Distillation
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
-            "env::{}_seed::{}_comment::entropy_distill_log".format(ENV, i+1)
+            "env::{}_seed::{}_comment::distill_learn_log".format(ENV, i+1)
     
         try:
             data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     datas.append(entropy_distill_data)
     datas_x.append(entropy_distill_data_ep)
-    legends.append(r'Entropy-Weighted Distillation')
+    legends.append(r'Distill and Learn')
 
     """
         Separate ER Distillation
@@ -109,7 +109,7 @@ if __name__ == "__main__":
     for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
-            "env::{}_seed::{}_comment::separate_replay_distilled_log".format(ENV, i+1)
+            "env::{}_seed::{}_comment::distill_learn_skip_1000_log".format(ENV, i+1)
     
         try:
             data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
@@ -122,14 +122,16 @@ if __name__ == "__main__":
 
     datas.append(separate_replay)
     datas_x.append(separate_replay_ep)
-    legends.append(r'Separate ER Distillation')
+    legends.append(r'Distill and Learn (only Critic for 1000 steps)')
 
     """
         Plot data
     """
     fig, ax = plt.subplots()
     sns.set_style("ticks")
-    
+
+    print(datas)
+
     for i_data, data in enumerate(datas):
         x = datas_x[i_data][0]
         mean = np.mean(data, axis=0)
@@ -142,14 +144,15 @@ if __name__ == "__main__":
 
     plt.xlabel(r'\textbf{Train Episode}', size=14)
     plt.ylabel(r'\textbf{Training Reward}', size=14)
-    plt.title(r'\textbf{Distillation Comparison (No Training after Reset)}', size=15)
+    plt.title(r'\textbf{Distillation Comparison}', size=15)
 
-    legend = plt.legend(
-        bbox_to_anchor=(0., 1.07, 1., .102), 
-        loc=3, 
-        ncol=2, 
-        mode="expand", 
-        borderaxespad=0.)
+    plt.legend()
+    # legend = plt.legend(
+    #     bbox_to_anchor=(0., 1.07, 1., .102), 
+    #     loc=3, 
+    #     ncol=2, 
+    #     mode="expand", 
+    #     borderaxespad=0.)
 
     if SAVE:
         plt.savefig(FIGURE_NAME, bbox_inches="tight", dpi=300) 

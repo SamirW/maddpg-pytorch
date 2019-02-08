@@ -5,11 +5,13 @@ import numpy as np
 import matplotlib.pyplot as plt 
 from pathlib import Path
 from torch.autograd import Variable
+from utils.misc import onehot_from_logits
 
 lndmrk_poses = np.array([[-0.75, 0.75], [0.75, 0.75], [0.75, -0.75], [-0.75, -0.75]])
 default_agent_poses = [[0.5, 0.5], [-0.5, 0.5], [-0.5, -0.5], [0.5, -0.5]]
 flipped_agent_poses = [[0.5, -0.5], [-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]
 color = {0: 'b', 1: 'r', 2: 'g', 3: [0.65, 0.65, 0.65]}
+num_arrows = 21
 
 def get_observations(agent_poses):
     obs_n = []
@@ -48,11 +50,24 @@ def add_arrows(axes, delta_dict, arrow_color="black", q_vals = None, rescale=Fal
         axes.imshow(q_vals)
         # print(q_vals)
 
-def heatmap(maddpg, title="Agent Policies 4", save=False):
-    fig, axes = plt.subplots(4, 2)
+def add_values(axes, val_dict):
+    X = np.linspace(-1, 1, num_arrows)
+    Y = np.linspace(-1, 1, num_arrows)
+    Z = np.empty((num_arrows, num_arrows))
+
+    for key in val_dict.keys():
+        x_index = np.where(X==key[0])[0][0]
+        y_index = np.where(Y==key[1])[0][0]
+        Z[x_index, y_index] = val_dict[key]
+    axes.contour(X, Y, Z, 10)
+
+def heatmap(maddpg, title="Agent Policies 4", save=False, replay_buffer=None):
+    fig, axes = plt.subplots(2, 2)
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.4)
 
-    num_arrows = 21
+    fig2, axes2 = plt.subplots(2, 2)
+    plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.4)
+
     titles = [["Blue Agent, State 1", "Blue Agent, State 2"], ["Red Agent, State 1", "Red Agent, State 2"], ["Green Agent, State 1", "Green Agent, State 2"], ["Silver Agent, State 1", "Silver Agent, State 2"]]
     
     for i in range(len(axes)):
@@ -64,7 +79,14 @@ def heatmap(maddpg, title="Agent Policies 4", save=False):
             ax.set_ylim(-1, 1)
             ax.set_title(titles[i][j])
 
+            ax2 = axes2[i, j]
+            ax2.set_aspect('equal', 'box')
+            ax2.set_xlim(-1, 1)
+            ax2.set_ylim(-1, 1)
+            ax2.set_title(titles[i][j])
+
             delta_dict = dict()
+            val_dict = dict()
             for x in np.linspace(-1, 1, num_arrows):
                 for y in np.linspace(-1, 1, num_arrows):
                     agent_pos = [x, y]
@@ -81,29 +103,77 @@ def heatmap(maddpg, title="Agent Policies 4", save=False):
                     torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, k])),
                                           requires_grad=False)
                                  for k in range(maddpg.nagents)]
+                    
                     torch_agent_logits = maddpg.action_logits(torch_obs)
-                    agent_logits = [ac.data.numpy() for ac in torch_agent_logits]
-                    action = agent_logits[i][0]
+                    torch_agent_onehots = [onehot_from_logits(ac) for ac in torch_agent_logits]
+                    action = torch_agent_logits[i].data.numpy()[0]
+                    # action = torch_agent_onehots[i].data.numpy()[0]
+
+                    obs = [o.repeat(2,1) for o in torch_obs]
+                    act = [a.repeat(2,1) for a in torch_agent_onehots]
+                    vf_in = torch.cat((*obs, *act), dim=1)
+                    vf_out = maddpg.agents[i].critic(vf_in)
+
+                    if False:
+                        print("Observation")
+                        print(torch_obs[0])
+                        print(len(torch_obs))
+                        print(torch_obs[0].shape)
+                            
+                        print("Action")
+                        print(torch_agent_onehots[0])
+                        print(len(torch_agent_onehots))
+                        print(torch_agent_onehots[0].shape)
+
+                        print("Value function In")
+                        print(vf_in)
+                        print(vf_in.shape)
+
+                        print("Value function Out")
+                        print(vf_out)
+                        print(vf_out.shape)
+
+                        exit()
 
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
+                    val_dict[tuple(agent_pos)] = vf_out.mean()
 
             add_arrows(ax, delta_dict, arrow_color=color[i], rescale=False)
+            add_values(ax2, val_dict)
             for l in range(len(agent_poses)):
                 if i == l: continue
                 ax.add_artist(plt.Circle(agent_poses[l], 0.1, color=color[l]))
+                ax2.add_artist(plt.Circle(agent_poses[l], 0.1, color=color[l]))
             for lndmrk_pos in lndmrk_poses:
                 ax.add_artist(plt.Circle(lndmrk_pos, 0.05, color=[0.25, 0.25, 0.25]))
-
+                ax2.add_artist(plt.Circle(lndmrk_pos, 0.05, color=[0.25, 0.25, 0.25]))
     fig.suptitle(title)
+    fig2.suptitle(title)
+
+    if replay_buffer:
+        for u in range(10):
+            print("TESTING REPLAY BUFFER")
+            sample = replay_buffer.sample(1, to_gpu=False)
+            obs, acs, rews, next_obs, dones = sample
+            curr_agent = maddpg.agents[0]
+
+            obs = [o.repeat(2,1) for o in obs]
+            acs = [a.repeat(2,1) for a in acs]
+            vf_in = torch.cat((*obs, *acs), dim=1)
+            print(vf_in)
+            actual_value = curr_agent.critic(vf_in)
+            print(actual_value)
 
     if save:
         plt.savefig("{}.png".format(title), bbox_inches="tight", dpi=300) 
 
 def distilled_heatmap(maddpg, save=False):
-    fig, axes = plt.subplots(4, 2)
+    fig, axes = plt.subplots(2, 2)
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.4)
 
-    num_arrows = 21
+    fig2, axes2 = plt.subplots(2, 2)
+    plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.4)
+
     titles = [["Blue Agent, State 1", "Blue Agent, State 2"], ["Red Agent, State 1", "Red Agent, State 2"], ["Green Agent, State 1", "Green Agent, State 2"], ["Silver Agent, State 1", "Silver Agent, State 2"]]
     
     for i in range(len(axes)):
@@ -115,7 +185,14 @@ def distilled_heatmap(maddpg, save=False):
             ax.set_ylim(-1, 1)
             ax.set_title(titles[i][j])
 
+            ax2 = axes2[i, j]
+            ax2.set_aspect('equal', 'box')
+            ax2.set_xlim(-1, 1)
+            ax2.set_ylim(-1, 1)
+            ax2.set_title(titles[i][j])
+
             delta_dict = dict()
+            val_dict = dict()
             for x in np.linspace(-1, 1, num_arrows):
                 for y in np.linspace(-1, 1, num_arrows):
                     agent_pos = [x, y]
@@ -133,8 +210,11 @@ def distilled_heatmap(maddpg, save=False):
                                           requires_grad=False)
                                  for k in range(maddpg.nagents)]
 
-                    torch_agent_i_logits = maddpg.distilled_agent.policy(torch_obs[i])
-                    action = torch_agent_i_logits.data.numpy()[0]
+                    torch_distilled_agent_logits = maddpg.distilled_agent.policy(torch_obs[i])
+                    torch_distilled_agent_onehots = onehot_from_logits(torch_distilled_agent_logits)
+                    action = torch_distilled_agent_logits.data.numpy()[0]
+                    # action = torch_distilled_agent_onehots.data.numpy()[0]
+
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
 
             add_arrows(ax, delta_dict, arrow_color=color[i], rescale=False)

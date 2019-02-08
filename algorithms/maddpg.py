@@ -107,7 +107,7 @@ class MADDPG(object):
         obs = [o.repeat(2,1) for o in obs]
         act = [a.repeat(2,1) for a in act]
         vf_in = torch.cat((*obs, *act), dim=1)
-        return [a.critic(vf_in) for a in self.agents]
+        return [a.critic(vf_in) for a in self.agents]  
 
     def update(self, sample, agent_i, parallel=False, logger=None, skip_actor=False):
         """
@@ -153,7 +153,28 @@ class MADDPG(object):
             vf_in = torch.cat((*obs, *acs), dim=1)
         else:  # DDPG
             vf_in = torch.cat((obs[agent_i], acs[agent_i]), dim=1)
+
         actual_value = curr_agent.critic(vf_in)
+
+        if False:
+            print("Observation")
+            print(obs[0])
+            print(len(obs))
+            print(obs[0].shape)
+
+            print("Action")
+            print(acs[0])
+            print(len(acs))
+            print(acs[0].shape)
+
+            print("Value function In")
+            print(vf_in)
+            print(vf_in.shape)
+
+            print("Value function Out")
+            print(actual_value)
+            print(actual_value.shape)
+            
         vf_loss = MSELoss(actual_value, target_value.detach())
         vf_loss.backward()
         if parallel:
@@ -233,17 +254,17 @@ class MADDPG(object):
                 distilled_actor_logits.append(self.distilled_agent.policy(ob))
 
             # Find critic outputs for each agent + distilled
-            # all_critic_logits = []
-            # distilled_critic_logits = []
-            # for crit in self.critics:
-            #     vf_in = torch.cat((*obs, *acs), dim=1)
-            #     all_critic_logits.append(crit(vf_in))
-            #     distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
+            all_critic_logits = []
+            distilled_critic_logits = []
+            for crit in self.critics:
+                vf_in = torch.cat((*obs, *acs), dim=1)
+                all_critic_logits.append(crit(vf_in))
+                distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
 
             for j, agent in enumerate(self.agents):
                 # Skip agent zero
-                if j == 0:
-                    continue
+                # if j == 0:
+                #     continue
 
                 # Distill agent
                 self.distilled_agent.policy_optimizer.zero_grad()
@@ -264,23 +285,24 @@ class MADDPG(object):
                 self.distilled_agent.policy_optimizer.step()
 
                 # Distill critic
-                # self.distilled_agent.critic_optimizer.zero_grad()
+                self.distilled_agent.critic_optimizer.zero_grad()
 
-                # target = all_critic_logits[j].detach()
-                # student = distilled_critic_logits[j]
-                # loss = MSELoss(student, target)
-                # loss.backward()
+                target = all_critic_logits[j].detach()
+                student = distilled_critic_logits[j]
+                loss = MSELoss(student, target)
+                loss.backward()
 
-                # torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
-                # self.distilled_agent.critic_optimizer.step()
+                torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
+                self.distilled_agent.critic_optimizer.step()
 
         # Update student parameters
         for a in self.agents:
             if hard: 
                 a.policy.load_state_dict(self.distilled_agent.policy.state_dict())
                 a.target_policy.load_state_dict(a.policy.state_dict())
-                # a.critic.load_state_dict(self.distilled_agent.critic.state_dict())
-                a.critic.randomize()
+
+                # a.critic.randomize()
+                a.critic.load_state_dict(self.distilled_agent.critic.state_dict())
                 a.target_critic.load_state_dict(a.critic.state_dict())
 
         # # Test

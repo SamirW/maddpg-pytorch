@@ -74,7 +74,10 @@ def run(config):
         # Flip episodes          
         if ep_i == config.flip_ep:
             print("Flipping")
-            replay_buffer.reset()
+            replay_buffer = ReplayBuffer(config.buffer_length, maddpg.nagents,
+                                 [obsp.shape[0] for obsp in env.observation_space],
+                                 [acsp.shape[0] if isinstance(acsp, Box) else acsp.n
+                                  for acsp in env.action_space])
             flip = True
 
         obs = env.reset(flip=flip)
@@ -109,22 +112,24 @@ def run(config):
             replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
             obs = next_obs
             t += config.n_rollout_threads
-            if len(replay_buffer) >= config.batch_size:
-                if (t % config.steps_per_update) < config.n_rollout_threads:
-                    if USE_CUDA:
-                        maddpg.prep_training(device='gpu')
-                    else:
-                        maddpg.prep_training(device='cpu')
-                    for u_i in range(config.n_rollout_threads):
-                        for a_i in range(maddpg.nagents):
-                            sample = replay_buffer.sample(config.batch_size,
-                                                          to_gpu=USE_CUDA)
-                            if ((ep_i > config.flip_ep) and (ep_i < (config.flip_ep + 1000))):
-                                maddpg.update(sample, a_i, logger=logger, skip_actor=True)
-                            else:
-                                maddpg.update(sample, a_i, logger=logger)
-                        maddpg.update_all_targets()
-                    maddpg.prep_rollouts(device='cpu')
+
+            if ep_i < config.eval_ep:
+                if len(replay_buffer) >= config.batch_size:
+                    if (t % config.steps_per_update) < config.n_rollout_threads:
+                        if USE_CUDA:
+                            maddpg.prep_training(device='gpu')
+                        else:
+                            maddpg.prep_training(device='cpu')
+                        for u_i in range(config.n_rollout_threads):
+                            for a_i in range(maddpg.nagents):
+                                sample = replay_buffer.sample(config.batch_size,
+                                                              to_gpu=USE_CUDA)
+                                if ((ep_i > config.flip_ep) and (ep_i < (config.flip_ep + config.skip_actor_length))):
+                                    maddpg.update(sample, a_i, logger=logger, skip_actor=True)
+                                else:
+                                    maddpg.update(sample, a_i, logger=logger)
+                            maddpg.update_all_targets()
+                        maddpg.prep_rollouts(device='cpu')
         ep_rews = replay_buffer.get_average_rewards(
             config.episode_length * config.n_rollout_threads)
         for a_i, a_ep_rew in enumerate(ep_rews):
@@ -145,55 +150,6 @@ def run(config):
 
     # print("***********Resettting************")
     # maddpg.agents[0].reset()
-
-    # if config.hard_distill_ep < 99999:
-    #     print("************Distilling***********")
-    #     maddpg.prep_rollouts(device='cpu')
-    #     maddpg.distill(256, 1024, replay_buffer, hard=True)
-
-    print("***********Evaluating************")
-    for ep_i in range(config.n_episodes, config.n_episodes+3500, config.n_rollout_threads):
-        obs = env.reset(flip=True)
-        maddpg.prep_rollouts(device='cpu')
-
-        maddpg.scale_noise(0)
-        maddpg.reset_noise()
-
-        for et_i in range(config.episode_length):
-
-            # rearrange observations to be per agent, and convert to torch Variable
-            torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
-                                  requires_grad=False)
-                         for i in range(maddpg.nagents)]
-
-            # get actions as torch Variables
-            torch_agent_actions = maddpg.step(torch_obs, explore=True)
-            # convert actions to numpy arrays
-            agent_actions = [ac.data.numpy() for ac in torch_agent_actions]
-            # rearrange actions to be per environment
-            actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
-            next_obs, rewards, dones, infos = env.step(actions)
-
-            if (ep_i+1) % config.display_every == 0:
-                time.sleep(0.01)
-                env.render()
-
-            replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
-            obs = next_obs
-            t += config.n_rollout_threads
-
-        ep_rews = replay_buffer.get_average_rewards(
-            config.episode_length * config.n_rollout_threads)
-        for a_i, a_ep_rew in enumerate(ep_rews):
-            logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
-
-        logger.add_scalar('joint/mean_episode_rewards', np.sum(ep_rews), ep_i)
-        log[config.log_name].info("Train episode reward {:0.5f} at episode {}".format(np.sum(ep_rews), ep_i))
-
-        if ep_i % config.save_interval < config.n_rollout_threads:
-            os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
-            maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
-            maddpg.save(str(run_dir / 'model.pt'))
 
     # Save experience replay buffer
     if config.save_buffer:
@@ -237,12 +193,18 @@ if __name__ == '__main__':
     parser.add_argument("--flip_ep",
                         default=999999, type=int,
                         help="Episode at which to flip")
+    parser.add_argument("--eval_ep",
+                        default=999999, type=int,
+                        help="Episode at which to start evaluating")
     parser.add_argument("--hard_distill_ep",
                         default=999999, type=int,
                         help="Episode at which to hard distill")
     parser.add_argument("--distill_freq",
                         default=999999, type=int,
                         help="Distilling frequency")
+    parser.add_argument("--skip_actor_length",
+                        default=0, type=int,
+                        help="How long to skip actor updates")
     parser.add_argument("--n_exploration_eps", default=25000, type=int)
     parser.add_argument("--init_noise_scale", default=0.3, type=float)
     parser.add_argument("--final_noise_scale", default=0.0, type=float)
