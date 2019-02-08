@@ -30,20 +30,25 @@ def add_arrows(axes, delta_dict, arrow_color="black", q_vals = None, rescale=Fal
     max_delta = max(delta_dict.values(), key=(lambda key: np.linalg.norm(key)))
     max_delta_size = np.linalg.norm(max_delta)
 
-
     for pos, delta in delta_dict.items():
         if rescale:
             delta = delta/max_delta_size*0.15
         else:
             delta = delta/np.linalg.norm(delta)*0.06
 
-        axes.arrow(pos[0], pos[1], delta[0], delta[1], length_includes_head=True, head_width=0.018, color=arrow_color)
+        if False:
+            if delta[0] > delta[1]:
+                axes.arrow(pos[0], pos[1], delta[0], 0, length_includes_head=True, head_width=0.018, color=arrow_color)
+            else:
+                axes.arrow(pos[0], pos[1], 0, delta[1], length_includes_head=True, head_width=0.018, color=arrow_color)
+        else:
+            axes.arrow(pos[0], pos[1], delta[0], delta[1], length_includes_head=True, head_width=0.018, color=arrow_color)
 
     if q_vals is not None:
         axes.imshow(q_vals)
         # print(q_vals)
 
-def heatmap(maddpg, title="Agent Policies", save=False):
+def heatmap(maddpg, title="Agent Policies 4", save=False):
     fig, axes = plt.subplots(4, 2)
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.4)
 
@@ -130,7 +135,6 @@ def distilled_heatmap(maddpg, save=False):
 
                     torch_agent_i_logits = maddpg.distilled_agent.policy(torch_obs[i])
                     action = torch_agent_i_logits.data.numpy()[0]
-                    print(action)
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
 
             add_arrows(ax, delta_dict, arrow_color=color[i], rescale=False)
@@ -143,7 +147,7 @@ def distilled_heatmap(maddpg, save=False):
     fig.suptitle("Distilled Policy")
 
     if save:
-        plt.savefig("Distilled Policy.png", bbox_inches="tight", dpi=300)
+        plt.savefig("Distilled Policy 4.png", bbox_inches="tight", dpi=300)
 
 def test():
 

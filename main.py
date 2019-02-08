@@ -71,13 +71,13 @@ def run(config):
     print("********Starting training********")
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
 
-        # # Flip after 10000 episodes          
-        # if ep_i == config.flip_ep:
-        #     print("Flipping")
-        #     replay_buffer.reset()
-        #     flip = True
+        # Flip episodes          
+        if ep_i == config.flip_ep:
+            print("Flipping")
+            replay_buffer.reset()
+            flip = True
 
-        obs = env.reset()
+        obs = env.reset(flip=flip)
         maddpg.prep_rollouts(device='cpu')
 
         if ep_i >= config.flip_ep:
@@ -135,22 +135,22 @@ def run(config):
             maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
             maddpg.save(str(run_dir / 'model.pt'))
 
-        # if (ep_i+1) == config.hard_distill_ep:
-        #     print("************Distilling***********")
-        #     maddpg.prep_rollouts(device='cpu')
-        #     maddpg.distill(128, 512, replay_buffer, hard=True)
+        if (ep_i+1) == config.hard_distill_ep:
+            print("************Distilling***********")
+            maddpg.prep_rollouts(device='cpu')
+            maddpg.distill(256, 1024, replay_buffer, hard=True)
 
-    print("***********Resettting************")
-    maddpg.agents[0].reset()
+    # print("***********Resettting************")
+    # maddpg.agents[0].reset()
 
-    if config.hard_distill_ep < 99999:
-        print("************Distilling***********")
-        maddpg.prep_rollouts(device='cpu')
-        maddpg.distill(2048, 1024, replay_buffer, hard=True)
+    # if config.hard_distill_ep < 99999:
+    #     print("************Distilling***********")
+    #     maddpg.prep_rollouts(device='cpu')
+    #     maddpg.distill(256, 1024, replay_buffer, hard=True)
 
     print("***********Evaluating************")
-    for ep_i in range(config.n_episodes, config.n_episodes+2000, config.n_rollout_threads):
-        obs = env.reset()
+    for ep_i in range(config.n_episodes, config.n_episodes+3500, config.n_rollout_threads):
+        obs = env.reset(flip=True)
         maddpg.prep_rollouts(device='cpu')
 
         maddpg.scale_noise(0)

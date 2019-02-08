@@ -1,0 +1,70 @@
+2019-02-01 14:16:15,009 : adversary_alg: MADDPG
+2019-02-01 14:16:15,009 : init_noise_scale: 0.3
+2019-02-01 14:16:15,010 : log_comment: no_distill
+2019-02-01 14:16:15,010 : hidden_dim: 64
+2019-02-01 14:16:15,010 : n_rollout_threads: 1
+2019-02-01 14:16:15,010 : save_buffer: False
+2019-02-01 14:16:15,010 : n_episodes: 1500
+2019-02-01 14:16:15,010 : hard_distill_ep: 999999
+2019-02-01 14:16:15,010 : n_training_threads: 6
+2019-02-01 14:16:15,010 : lr: 0.01
+2019-02-01 14:16:15,010 : save_interval: 1000
+2019-02-01 14:16:15,010 : env_id: simple_spread_flip_4
+2019-02-01 14:16:15,010 : episode_length: 25
+2019-02-01 14:16:15,010 : distill_freq: 999999
+2019-02-01 14:16:15,010 : batch_size: 1024
+2019-02-01 14:16:15,010 : tau: 0.01
+2019-02-01 14:16:15,010 : final_noise_scale: 0.0
+2019-02-01 14:16:15,010 : discrete_action: True
+2019-02-01 14:16:15,010 : seed: 5
+2019-02-01 14:16:15,010 : model_name: eval_graph
+2019-02-01 14:16:15,010 : n_exploration_eps: 25000
+2019-02-01 14:16:15,010 : buffer_length: 1000000
+2019-02-01 14:16:15,010 : flip_ep: 999999
+2019-02-01 14:16:15,010 : steps_per_update: 100
+2019-02-01 14:16:15,010 : agent_alg: MADDPG
+2019-02-01 14:16:15,011 : log_name: env::simple_spread_flip_4_seed::5_comment::no_distill_log
+2019-02-01 14:16:15,011 : display_every: 999999
+2019-02-01 14:16:15,052 : Train episode reward -10.99739 at episode 0
+2019-02-01 14:16:15,087 : Train episode reward -15.43794 at episode 1
+2019-02-01 14:16:15,116 : Train episode reward -15.00855 at episode 2
+2019-02-01 14:16:15,145 : Train episode reward -12.43397 at episode 3
+2019-02-01 14:16:15,174 : Train episode reward -12.58917 at episode 4
+2019-02-01 14:16:15,203 : Train episode reward -10.47923 at episode 5
+2019-02-01 14:16:15,232 : Train episode reward -13.62015 at episode 6
+2019-02-01 14:16:15,260 : Train episode reward -13.59623 at episode 7
+2019-02-01 14:16:15,297 : Train episode reward -13.05312 at episode 8
+2019-02-01 14:16:15,345 : Train episode reward -12.47496 at episode 9
+2019-02-01 14:16:15,394 : Train episode reward -12.86493 at episode 10
+2019-02-01 14:16:15,426 : Train episode reward -9.52975 at episode 11
+2019-02-01 14:16:15,455 : Train episode reward -12.41682 at episode 12
+2019-02-01 14:16:15,483 : Train episode reward -12.25885 at episode 13
+2019-02-01 14:16:15,519 : Train episode reward -13.52739 at episode 14
+2019-02-01 14:16:15,548 : Train episode reward -11.55794 at episode 15
+2019-02-01 14:16:15,584 : Train episode reward -12.59160 at episode 16
+2019-02-01 14:16:15,619 : Train episode reward -9.71233 at episode 17
+2019-02-01 14:16:15,653 : Train episode reward -10.55159 at episode 18
+2019-02-01 14:16:15,682 : Train episode reward -11.27071 at episode 19
+2019-02-01 14:16:15,712 : Train episode reward -9.39948 at episode 20
+2019-02-01 14:16:15,740 : Train episode reward -10.58382 at episode 21
+2019-02-01 14:16:15,767 : Train episode reward -11.31781 at episode 22
+2019-02-01 14:16:15,796 : Train episode reward -13.16656 at episode 23
+2019-02-01 14:16:15,826 : Train episode reward -9.58284 at episode 24
+2019-02-01 14:16:15,855 : Train episode reward -12.47710 at episode 25
+2019-02-01 14:16:15,883 : Train episode reward -12.32817 at episode 26
+2019-02-01 14:16:15,912 : Train episode reward -11.41587 at episode 27
+2019-02-01 14:16:15,941 : Train episode reward -13.80328 at episode 28
+2019-02-01 14:16:15,969 : Train episode reward -12.53061 at episode 29
+2019-02-01 14:16:16,004 : Train episode reward -10.30852 at episode 30
+2019-02-01 14:16:16,040 : Train episode reward -11.98250 at episode 31
+2019-02-01 14:16:16,075 : Train episode reward -13.61385 at episode 32
+2019-02-01 14:16:16,111 : Train episode reward -12.31652 at episode 33
+2019-02-01 14:16:16,146 : Train episode reward -11.12384 at episode 34
+2019-02-01 14:16:16,181 : Train episode reward -9.19757 at episode 35
+2019-02-01 14:16:16,217 : Train episode reward -10.67495 at episode 36
+2019-02-01 14:16:16,252 : Train episode reward -10.16142 at episode 37
+2019-02-01 14:16:16,288 : Train episode reward -12.68413 at episode 38
+2019-02-01 14:16:16,323 : Train episode reward -12.58653 at episode 39
+2019-02-01 14:16:16,359 : Train episode reward -13.64745 at episode 40
+2019-02-01 14:16:16,395 : Train episode reward -10.80536 at episode 41
+2019-02-01 14:16:16,431 : Train episode reward -13.28639 at episode 42

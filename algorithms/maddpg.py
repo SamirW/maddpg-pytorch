@@ -244,12 +244,12 @@ class MADDPG(object):
 
                 with torch.no_grad():
                     target = F.softmax(all_actor_logits[j], dim=1)
-                    entropy = Categorical(probs=target).entropy()
-                    weight = (1-entropy/agent.max_entropy)
+                    # entropy = Categorical(probs=target).entropy()
+                    # weight = (1-entropy/agent.max_entropy)
                 student = F.log_softmax(distilled_actor_logits[j], dim=1)
                 loss = KLLoss(student, target) / batch_size
-                loss = loss.sum(dim=1)
-                loss = loss * weight
+                # loss = loss.sum(dim=1)
+                # loss = loss * weight
                 loss = loss.sum()
                 loss.backward()
 
@@ -257,22 +257,24 @@ class MADDPG(object):
                 self.distilled_agent.policy_optimizer.step()
 
                 # Distill critic
-                self.distilled_agent.critic_optimizer.zero_grad()
+                # self.distilled_agent.critic_optimizer.zero_grad()
 
-                target = all_critic_logits[j].detach()
-                student = distilled_critic_logits[j]
-                loss = MSELoss(student, target)
-                loss.backward()
+                # target = all_critic_logits[j].detach()
+                # student = distilled_critic_logits[j]
+                # loss = MSELoss(student, target)
+                # loss.backward()
 
-                torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
-                self.distilled_agent.critic_optimizer.step()
+                # torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
+                # self.distilled_agent.critic_optimizer.step()
 
         # Update student parameters
         for a in self.agents:
             if hard: 
-                # hard_update(a.policy, self.distilled_agent.policy)
                 a.policy.load_state_dict(self.distilled_agent.policy.state_dict())
+                a.target_policy.load_state_dict(a.policy.state_dict())
                 # a.critic.load_state_dict(self.distilled_agent.critic.state_dict())
+                a.critic.randomize()
+                a.target_critic.load_state_dict(a.critic.state_dict())
 
         # # Test
         # sample = replay_buffer.sample(batch_size, to_gpu=False)
