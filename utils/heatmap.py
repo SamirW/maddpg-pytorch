@@ -195,7 +195,11 @@ def distilled_heatmap(maddpg, save=False):
                     # action = torch_agent_onehots[i].data.numpy()[0]
 
                     obs = [o.repeat(2,1) for o in torch_obs]
+                    if "Red" in titles[i][j]:
+                        obs.reverse()
                     act = [a.repeat(2,1) for a in torch_agent_onehots]
+                    if "Red" in titles[i][j]:
+                        act.reverse()                    
                     vf_in = torch.cat((*obs, *act), dim=1)
                     vf_out = maddpg.agents[i].critic(vf_in)
 

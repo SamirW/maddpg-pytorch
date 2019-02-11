@@ -104,6 +104,8 @@ def run(config):
             # rearrange actions to be per environment
             actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
             next_obs, rewards, dones, infos = env.step(actions)
+            if et_i == (config.episode_length-1):
+                dones = dones + 1
 
             if (ep_i+1) % config.display_every == 0:
                 time.sleep(0.01)
@@ -145,8 +147,18 @@ def run(config):
 
         if (ep_i+1) == config.hard_distill_ep:
             print("************Distilling***********")
+            os.makedirs(str(run_dir / 'models'), exist_ok=True)
+            maddpg.save(str(run_dir / 'models/before_distillation.pt'.format(ep_i)))
+
             maddpg.prep_rollouts(device='cpu')
             maddpg.distill(256, 1024, replay_buffer, hard=True)
+
+            maddpg.save(str(run_dir / 'models/after_distillation.pt'.format(ep_i)))
+
+        if (ep_i) % config.model_save_freq == 0:
+            print("************Saving model***********")
+            os.makedirs(str(run_dir / 'models'), exist_ok=True)
+            maddpg.save(str(run_dir / 'models/model{}.pt'.format(ep_i)))
 
     # print("***********Resettting************")
     # maddpg.agents[0].reset()
@@ -202,6 +214,9 @@ if __name__ == '__main__':
     parser.add_argument("--distill_freq",
                         default=999999, type=int,
                         help="Distilling frequency")
+    parser.add_argument("--model_save_freq",
+                        default=999999, type=int,
+                        help="Model save freq")
     parser.add_argument("--skip_actor_length",
                         default=0, type=int,
                         help="How long to skip actor updates")

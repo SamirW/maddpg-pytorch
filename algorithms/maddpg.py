@@ -256,15 +256,22 @@ class MADDPG(object):
             # Find critic outputs for each agent + distilled
             all_critic_logits = []
             distilled_critic_logits = []
-            for crit in self.critics:
-                vf_in = torch.cat((*obs, *acs), dim=1)
+            for p, crit in enumerate(self.critics):
+                if p == 0:
+                    obs_in = obs
+                    acs_in = acs 
+                else:
+                    obs_in = list(reversed(obs))
+                    acs_in = list(reversed(acs))
+                vf_in = torch.cat((*obs_in, *acs_in), dim=1)
                 all_critic_logits.append(crit(vf_in))
                 distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
 
+
             for j, agent in enumerate(self.agents):
                 # Skip agent zero
-                # if j == 0:
-                #     continue
+                if j == 0:
+                    continue
 
                 # Distill agent
                 self.distilled_agent.policy_optimizer.zero_grad()
