@@ -8,9 +8,9 @@ plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
-ENV = "simple_spread_flip_4"
-BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph_4/"
-FIGURE_NAME = "figures/4_agent.png"
+ENV = "simple_spread_flip"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/analyze_vf/"
+FIGURE_NAME = "figures/2_agent/analyzing_vf.png"
 
 CONV_SIZE = 50
 NUM_SEEDS = 10
@@ -77,60 +77,58 @@ if __name__ == "__main__":
     legends.append(r'Distill and Evaluate (No Learning)')
 
     """
-        Entropy Distillation
+        No Distillation
     """
-    entropy_distill_data = []
-    entropy_distill_data_ep = []
+    no_distill_eval = []
+    no_distill_eval_ep = []
 
     for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
-            "env::{}_seed::{}_comment::distill_learn_log".format(ENV, i+1)
+            "env::{}_seed::{}_comment::no_distill_eval_log".format(ENV, i+1)
     
         try:
             data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
             data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
-            entropy_distill_data.append(data)
-            entropy_distill_data_ep.append(data_x)
+            no_distill_eval.append(data)
+            no_distill_eval_ep.append(data_x)
         except:
             continue
 
-    datas.append(entropy_distill_data)
-    datas_x.append(entropy_distill_data_ep)
-    legends.append(r'Distill and Learn')
+    datas.append(no_distill_eval)
+    datas_x.append(no_distill_eval_ep)
+    legends.append(r'No Distill and Evaluate (No Learning)')
 
     """
         Separate ER Distillation
     """
-    separate_replay = []
-    separate_replay_ep = []
+    # separate_replay = []
+    # separate_replay_ep = []
 
-    for i in range(NUM_SEEDS):
-        path = \
-            BASE_DIR + \
-            "env::{}_seed::{}_comment::distill_learn_skip_1000_log".format(ENV, i+1)
+    # for i in range(NUM_SEEDS):
+    #     path = \
+    #         BASE_DIR + \
+    #         "env::{}_seed::{}_comment::distill_learn_skip_1000_log".format(ENV, i+1)
     
-        try:
-            data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
-            data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+    #     try:
+    #         data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+    #         data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
-            separate_replay.append(data)
-            separate_replay_ep.append(data_x)
-        except:
-            continue
+    #         separate_replay.append(data)
+    #         separate_replay_ep.append(data_x)
+    #     except:
+    #         continue
 
-    datas.append(separate_replay)
-    datas_x.append(separate_replay_ep)
-    legends.append(r'Distill and Learn (only Critic for 1000 steps)')
+    # datas.append(separate_replay)
+    # datas_x.append(separate_replay_ep)
+    # legends.append(r'Distill and Learn (only Critic for 1000 steps)')
 
     """
         Plot data
     """
     fig, ax = plt.subplots()
     sns.set_style("ticks")
-
-    print(datas)
 
     for i_data, data in enumerate(datas):
         x = datas_x[i_data][0]
