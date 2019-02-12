@@ -9,7 +9,7 @@ from utils.misc import onehot_from_logits
 
 lndmrk_poses = np.array([[-0.75, -0.75], [0.75, 0.75]])  # Target 0, Target 1
 default_agent_poses = np.array([[-0.33, -0.33], [0.33, 0.33]])  # Blue, Red 
-flipped_agent_poses = np.array([[0.33, 0.33], [-0.33, -0.33]])  # Blue, Red
+flipped_agent_poses = np.array([[0.25, 0.25], [-0.40, -0.15]])  # Blue, Red
 color = {0: 'b', 1: 'r'}
 num_arrows = 21
 
@@ -105,6 +105,11 @@ def heatmap(maddpg, title="Agent Policies", save=False):
 
                     obs = [o.repeat(2,1) for o in torch_obs]
                     act = [a.repeat(2,1) for a in torch_agent_onehots]
+
+                    if i > 0:
+                        obs.reverse()
+                        act.reverse()
+
                     vf_in = torch.cat((*obs, *act), dim=1)
                     vf_out = maddpg.agents[i].critic(vf_in)
                     # vf_out = maddpg.agents[0].critic(vf_in)

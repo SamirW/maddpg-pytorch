@@ -258,6 +258,9 @@ class MADDPG(object):
             all_critic_logits = []
             distilled_critic_logits = []
             for p, crit in enumerate(self.critics):
+                if p > 0:
+                    obs.reverse()
+                    acs.reverse()
                 vf_in = torch.cat((*obs, *acs), dim=1)
                 all_critic_logits.append(crit(vf_in))
                 distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
