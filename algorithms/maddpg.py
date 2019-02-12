@@ -105,7 +105,7 @@ class MADDPG(object):
 
         curr_agent.critic_optimizer.zero_grad()
         if self.alg_types[agent_i] == 'MADDPG':
-            if self.discrete_action: # one-hot encode action
+            if self.discrete_action:  # one-hot encode action
                 all_trgt_acs = [onehot_from_logits(pi(nobs)) for pi, nobs in
                                 zip(self.target_policies, next_obs)]
             else:
@@ -243,7 +243,6 @@ class MADDPG(object):
                 all_critic_logits.append(crit(vf_in))
                 distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
 
-
             for j, agent in enumerate(self.agents):
                 # Skip agent zero
                 if j == 0:
@@ -358,15 +357,14 @@ class MADDPG(object):
 
     @classmethod
     def init_from_env(cls, env, agent_alg="MADDPG", adversary_alg="MADDPG",
-                      gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64):
+                      gamma=0.99, tau=0.01, lr=0.01, hidden_dim=64):
         """
         Instantiate instance of this class from multi-agent environment
         """
         agent_init_params = []
-        alg_types = [adversary_alg if atype == 'adversary' else agent_alg for
-                     atype in env.agent_types]
-        for acsp, obsp, algtype in zip(env.action_space, env.observation_space,
-                                       alg_types):
+        alg_types = [agent_alg for atype in env.agent_types]
+        for acsp, obsp, algtype in zip(env.action_space, env.observation_space, alg_types):
+            # Calculate actor input
             num_in_pol = obsp.shape[0]
             if isinstance(acsp, Box):
                 discrete_action = False
@@ -374,7 +372,11 @@ class MADDPG(object):
             else:  # Discrete
                 discrete_action = True
                 get_shape = lambda x: x.n
+
+            # Calculate actor output
             num_out_pol = get_shape(acsp)
+
+            # Calculate critic input
             if algtype == "MADDPG":
                 num_in_critic = 0
                 for oobsp in env.observation_space:
@@ -383,16 +385,23 @@ class MADDPG(object):
                     num_in_critic += get_shape(oacsp)
             else:
                 num_in_critic = obsp.shape[0] + get_shape(acsp)
-            agent_init_params.append({'num_in_pol': num_in_pol,
-                                      'num_out_pol': num_out_pol,
-                                      'num_in_critic': num_in_critic})
-        init_dict = {'gamma': gamma, 'tau': tau, 'lr': lr,
-                     'hidden_dim': hidden_dim,
-                     'alg_types': alg_types,
-                     'agent_init_params': agent_init_params,
-                     'discrete_action': discrete_action}
+
+            agent_init_params.append({
+                'num_in_pol': num_in_pol,
+                'num_out_pol': num_out_pol,
+                'num_in_critic': num_in_critic})
+
+        init_dict = {
+            'gamma': gamma, 
+            'tau': tau, 
+            'lr': lr,
+            'hidden_dim': hidden_dim,
+            'alg_types': alg_types,
+            'agent_init_params': agent_init_params,
+            'discrete_action': discrete_action}
         instance = cls(**init_dict)
         instance.init_dict = init_dict
+
         return instance
 
     @classmethod
