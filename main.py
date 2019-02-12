@@ -151,7 +151,7 @@ def run(config):
             maddpg.save(str(run_dir / 'models/before_distillation.pt'.format(ep_i)))
 
             maddpg.prep_rollouts(device='cpu')
-            maddpg.distill(256, 1024, replay_buffer, hard=True)
+            maddpg.distill(256, 1024, replay_buffer, hard=True, pass_actor=config.distill_pass_actor, pass_critic=config.distill_pass_critic)
 
             maddpg.save(str(run_dir / 'models/after_distillation.pt'.format(ep_i)))
 
@@ -219,6 +219,14 @@ if __name__ == '__main__':
                         help="Model save freq")
     parser.add_argument("--skip_actor_length",
                         default=0, type=int,
+                        help="How long to skip actor updates")
+    parser.add_argument("--distill_pass_actor",
+                        action="store_true",
+                        default=False,
+                        help="How long to skip actor updates")
+    parser.add_argument("--distill_pass_critic",
+                        action="store_true",
+                        default=False,
                         help="How long to skip actor updates")
     parser.add_argument("--n_exploration_eps", default=25000, type=int)
     parser.add_argument("--init_noise_scale", default=0.3, type=float)

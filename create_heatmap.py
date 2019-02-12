@@ -6,7 +6,7 @@ from algorithms.maddpg import MADDPG
 from utils.heatmap import *
 from utils.buffer import ReplayBuffer
 
-plots = [0, 500, 1000, 1500, 2000, 2500]
+plots = [0, 500, 1000, 1500, 2000, 2500, 3000, 3500]
 names = ["before_distillation"]
 
 def run(config):

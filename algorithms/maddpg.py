@@ -238,8 +238,11 @@ class MADDPG(object):
             soft_update(a.target_policy, a.policy, self.tau)
         self.niter += 1
 
-    def distill(self, num_distill, batch_size, replay_buffer, hard=False, temperature=0.01, tau=0.01):
+    def distill(self, num_distill, batch_size, replay_buffer, hard=False, pass_actor=False, pass_critic = False, temperature=0.01, tau=0.01):
         replay_buffer.prepare_weights()
+
+        if pass_actor and pass_critic:
+            return 0
 
         # Repeat multiple times
         for i in range(num_distill):
@@ -267,48 +270,48 @@ class MADDPG(object):
 
 
             for j, agent in enumerate(self.agents):
-                # Skip agent zero
-                # if j == 0:
-                    # continue
 
-                # Distill agent
-                self.distilled_agent.policy_optimizer.zero_grad()
+                if not pass_actor:
+                    # Distill agent
+                    self.distilled_agent.policy_optimizer.zero_grad()
 
-                with torch.no_grad():
-                    target = F.softmax(all_actor_logits[j], dim=1)
-                    # entropy = Categorical(probs=target).entropy()
-                    # weight = (1-entropy/agent.max_entropy)
-                    # weight = replay_buffer.KDE(j, obs[j].data.numpy())
-                student = F.log_softmax(distilled_actor_logits[j], dim=1)
-                loss = KLLoss(student, target) / batch_size
-                # loss = loss.sum(dim=1)
-                # loss = loss * weight
-                loss = loss.sum()
-                loss.backward()
+                    with torch.no_grad():
+                        target = F.softmax(all_actor_logits[j], dim=1)
+                        # entropy = Categorical(probs=target).entropy()
+                        # weight = (1-entropy/agent.max_entropy)
+                        # weight = replay_buffer.KDE(j, obs[j].data.numpy())
+                    student = F.log_softmax(distilled_actor_logits[j], dim=1)
+                    loss = KLLoss(student, target) / batch_size
+                    # loss = loss.sum(dim=1)
+                    # loss = loss * weight
+                    loss = loss.sum()
+                    loss.backward()
 
-                torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)
-                self.distilled_agent.policy_optimizer.step()
+                    torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)
+                    self.distilled_agent.policy_optimizer.step()
 
-                # Distill critic
-                self.distilled_agent.critic_optimizer.zero_grad()
+                if not pass_critic:
+                    # Distill critic
+                    self.distilled_agent.critic_optimizer.zero_grad()
 
-                target = all_critic_logits[j].detach()
-                student = distilled_critic_logits[j]
-                loss = MSELoss(student, target)
-                loss.backward()
+                    target = all_critic_logits[j].detach()
+                    student = distilled_critic_logits[j]
+                    loss = MSELoss(student, target)
+                    loss.backward()
 
-                torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
-                self.distilled_agent.critic_optimizer.step()
+                    torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
+                    self.distilled_agent.critic_optimizer.step()
 
         # Update student parameters
         for a in self.agents:
             if hard: 
-                a.policy.load_state_dict(self.distilled_agent.policy.state_dict())
-                a.target_policy.load_state_dict(a.policy.state_dict())
+                if not pass_actor:
+                    a.policy.load_state_dict(self.distilled_agent.policy.state_dict())
+                    a.target_policy.load_state_dict(a.policy.state_dict())
 
-                # a.critic.randomize()
-                a.critic.load_state_dict(self.distilled_agent.critic.state_dict())
-                a.target_critic.load_state_dict(a.critic.state_dict())
+                if not pass_critic:
+                    a.critic.load_state_dict(self.distilled_agent.critic.state_dict())
+                    a.target_critic.load_state_dict(a.critic.state_dict())
 
     def prep_training(self, device='gpu'):
         for a in self.agents:
