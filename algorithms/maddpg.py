@@ -133,7 +133,14 @@ class MADDPG(object):
             else:
                 all_trgt_acs = [pi(nobs) for pi, nobs in zip(self.target_policies,
                                                              next_obs)]
-            trgt_vf_in = torch.cat((*next_obs, *all_trgt_acs), dim=1)
+
+            if agent_i > 0:
+                next_obs_in = list(reversed(next_obs))
+                all_trgt_acs_in = list(reversed(all_trgt_acs))
+            else:
+                next_obs_in = next_obs 
+                all_trgt_acs_in = all_trgt_acs
+            trgt_vf_in = torch.cat((*next_obs_in, *all_trgt_acs_in), dim=1)
         else:  # DDPG
             if self.discrete_action:
                 trgt_vf_in = torch.cat((next_obs[agent_i],
@@ -149,31 +156,19 @@ class MADDPG(object):
                         curr_agent.target_critic(trgt_vf_in) *
                         (1 - dones[agent_i].view(-1, 1)))
 
+        if agent_i > 0:
+            obs_in = list(reversed(obs))
+            acs_in = list(reversed(acs))
+        else:
+            obs_in = obs
+            acs_in = acs 
+
         if self.alg_types[agent_i] == 'MADDPG':
-            vf_in = torch.cat((*obs, *acs), dim=1)
+            vf_in = torch.cat((*obs_in, *acs_in), dim=1)
         else:  # DDPG
             vf_in = torch.cat((obs[agent_i], acs[agent_i]), dim=1)
 
         actual_value = curr_agent.critic(vf_in)
-
-        if False:
-            print("Observation")
-            print(obs[0])
-            print(len(obs))
-            print(obs[0].shape)
-
-            print("Action")
-            print(acs[0])
-            print(len(acs))
-            print(acs[0].shape)
-
-            print("Value function In")
-            print(vf_in)
-            print(vf_in.shape)
-
-            print("Value function Out")
-            print(actual_value)
-            print(actual_value.shape)
             
         vf_loss = MSELoss(actual_value, target_value.detach())
         vf_loss.backward()
@@ -205,7 +200,15 @@ class MADDPG(object):
                         all_pol_acs.append(onehot_from_logits(pi(ob)))
                     else:
                         all_pol_acs.append(pi(ob))
-                vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
+
+                if agent_i > 0:
+                    obs_in = list(reversed(obs))
+                    all_pol_acs_in = list(reversed(all_pol_acs))
+                else:
+                    next_obs_in = obs
+                    all_pol_acs_in = all_pol_acs
+
+                vf_in = torch.cat((*obs_in, *all_pol_acs_in), dim=1)
             else:  # DDPG
                 vf_in = torch.cat((obs[agent_i], curr_pol_vf_in),
                                   dim=1)

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-python main.py simple_spread_flip analyze_vf --seed 3 --n_episodes 750 --hard_distill_ep 750 --log_comment "heatmap_data" --save_buffer --display_every 100
+python main.py simple_spread_flip analyze_vf_flipped_input --seed 5 --n_episodes 1500 --hard_distill_ep 1500 --log_comment "heatmap_data" --save_buffer --display_every 100
 
 # python main.py simple_spread_flip analyze_vf --seed 3 --n_episodes 2500 --model_save_freq 250 --flip_ep 0 --log_comment "baseline" 
 # python main.py simple_spread_flip analyze_vf --seed 3 --n_episodes 2500 --model_save_freq 250 --flip_ep 750 --hard_distill_ep 750 --eval_ep 750 --log_comment "distill_eval"
