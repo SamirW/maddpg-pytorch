@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class MLPNetwork(nn.Module):
     """
     MLP network (can be used as value or policy)
@@ -16,21 +17,19 @@ class MLPNetwork(nn.Module):
         """
         super(MLPNetwork, self).__init__()
 
-        if norm_in:  # normalize inputs
-            self.in_fn = nn.BatchNorm1d(input_dim)
-            self.in_fn.weight.data.fill_(1)
-            self.in_fn.bias.data.fill_(0)
-        else:
-            self.in_fn = lambda x: x
+        assert norm_in is False
+        self.in_fn = lambda x: x
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
         self.fc3 = nn.Linear(hidden_dim, out_dim)
         self.nonlin = nonlin
+
         if constrain_out and not discrete_action:
             # initialize small to prevent saturation
             self.fc3.weight.data.uniform_(-3e-3, 3e-3)
             self.out_fn = F.tanh
-        else:  # logits for discrete action (will softmax later)
+        else:
+            # logits for discrete action (will softmax later)
             self.out_fn = lambda x: x
 
     def forward(self, X):
@@ -50,6 +49,7 @@ class MLPNetwork(nn.Module):
         nn.init.xavier_uniform_(self.fc2.weight)
         nn.init.xavier_uniform_(self.fc3.weight)
 
+
 class SimpleMLPNetwork(nn.Module):
     """
     MLP network (can be used as value or policy)
@@ -65,20 +65,18 @@ class SimpleMLPNetwork(nn.Module):
         """
         super(SimpleMLPNetwork, self).__init__()
 
-        if norm_in:  # normalize inputs
-            self.in_fn = nn.BatchNorm1d(input_dim)
-            self.in_fn.weight.data.fill_(1)
-            self.in_fn.bias.data.fill_(0)
-        else:
-            self.in_fn = lambda x: x
+        assert norm_in is False
+        self.in_fn = lambda x: x
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, out_dim)
         self.nonlin = nonlin
+
         if constrain_out and not discrete_action:
             # initialize small to prevent saturation
             self.fc3.weight.data.uniform_(-3e-3, 3e-3)
             self.out_fn = F.tanh
-        else:  # logits for discrete action (will softmax later)
+        else:  
+            # logits for discrete action (will softmax later)
             self.out_fn = lambda x: x
 
     def forward(self, X):

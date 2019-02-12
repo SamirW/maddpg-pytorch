@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from gym.spaces import Box
-from utils.misc import soft_update, average_gradients, onehot_from_logits, gumbel_softmax
+from utils.misc import soft_update, onehot_from_logits, gumbel_softmax
 from utils.agents import DDPGAgent
 
 MSELoss = torch.nn.MSELoss()
@@ -82,8 +82,6 @@ class MADDPG(object):
         return [a.action_logits(obs) for a, obs in zip(self.agents, observations)]
 
     def get_critic_vals(self, obs, act):
-        obs = [o.repeat(2, 1) for o in obs]
-        act = [a.repeat(2, 1) for a in act]
         vf_in = torch.cat((*obs, *act), dim=1)
         return [a.critic(vf_in) for a in self.agents]  
 
@@ -100,96 +98,55 @@ class MADDPG(object):
             logger (SummaryWriter from Tensorboard-Pytorch):
                 If passed in, important quantities will be logged
         """
+        assert parallel is False
+
         obs, acs, rews, next_obs, dones = sample
         curr_agent = self.agents[agent_i]
 
         curr_agent.critic_optimizer.zero_grad()
         if self.alg_types[agent_i] == 'MADDPG':
-            if self.discrete_action:  # one-hot encode action
-                all_trgt_acs = [onehot_from_logits(pi(nobs)) for pi, nobs in
-                                zip(self.target_policies, next_obs)]
-            else:
-                all_trgt_acs = [pi(nobs) for pi, nobs in zip(self.target_policies,
-                                                             next_obs)]
+            all_trgt_acs = [
+                onehot_from_logits(pi(nobs)) for pi, nobs in zip(self.target_policies, next_obs)]
             trgt_vf_in = torch.cat((*next_obs, *all_trgt_acs), dim=1)
-        else:  # DDPG
-            if self.discrete_action:
-                trgt_vf_in = torch.cat((next_obs[agent_i],
-                                        onehot_from_logits(
-                                            curr_agent.target_policy(
-                                                next_obs[agent_i]))),
-                                       dim=1)
-            else:
-                trgt_vf_in = torch.cat((next_obs[agent_i],
-                                        curr_agent.target_policy(next_obs[agent_i])),
-                                       dim=1)
+        else:
+            raise ValueError()
+
         target_value = (rews[agent_i].view(-1, 1) + self.gamma * curr_agent.target_critic(trgt_vf_in) * (1 - dones[agent_i].view(-1, 1)))
 
-        if self.alg_types[agent_i] == 'MADDPG':
-            vf_in = torch.cat((*obs, *acs), dim=1)
-        else:  # DDPG
-            vf_in = torch.cat((obs[agent_i], acs[agent_i]), dim=1)
-
+        vf_in = torch.cat((*obs, *acs), dim=1)
         actual_value = curr_agent.critic(vf_in)
-
-        if False:
-            print("Observation")
-            print(obs[0])
-            print(len(obs))
-            print(obs[0].shape)
-
-            print("Action")
-            print(acs[0])
-            print(len(acs))
-            print(acs[0].shape)
-
-            print("Value function In")
-            print(vf_in)
-            print(vf_in.shape)
-
-            print("Value function Out")
-            print(actual_value)
-            print(actual_value.shape)
             
+        # Critic update
         vf_loss = MSELoss(actual_value, target_value.detach())
         vf_loss.backward()
-        if parallel:
-            average_gradients(curr_agent.critic)
         torch.nn.utils.clip_grad_norm_(curr_agent.critic.parameters(), 0.5)
         curr_agent.critic_optimizer.step()
 
         if not skip_actor:
             curr_agent.policy_optimizer.zero_grad()
 
-            if self.discrete_action:
-                # Forward pass as if onehot (hard=True) but backprop through a differentiable
-                # Gumbel-Softmax sample. The MADDPG paper uses the Gumbel-Softmax trick to backprop
-                # through discrete categorical samples, but I'm not sure if that is
-                # correct since it removes the assumption of a deterministic policy for
-                # DDPG. Regardless, discrete policies don't seem to learn properly without it.
-                curr_pol_out = curr_agent.policy(obs[agent_i])
-                curr_pol_vf_in = gumbel_softmax(curr_pol_out, hard=True)
-            else:
-                curr_pol_out = curr_agent.policy(obs[agent_i])
-                curr_pol_vf_in = curr_pol_out
-            if self.alg_types[agent_i] == 'MADDPG':
-                all_pol_acs = []
-                for i, pi, ob in zip(range(self.nagents), self.policies, obs):
-                    if i == agent_i:
-                        all_pol_acs.append(curr_pol_vf_in)
-                    elif self.discrete_action:
-                        all_pol_acs.append(onehot_from_logits(pi(ob)))
-                    else:
-                        all_pol_acs.append(pi(ob))
-                vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
-            else:  # DDPG
-                vf_in = torch.cat((obs[agent_i], curr_pol_vf_in),
-                                  dim=1)
+            # Forward pass as if onehot (hard=True) but backprop through a differentiable
+            # Gumbel-Softmax sample. The MADDPG paper uses the Gumbel-Softmax trick to backprop
+            # through discrete categorical samples, but I'm not sure if that is
+            # correct since it removes the assumption of a deterministic policy for
+            # DDPG. Regardless, discrete policies don't seem to learn properly without it.
+            curr_pol_out = curr_agent.policy(obs[agent_i])
+            curr_pol_vf_in = gumbel_softmax(curr_pol_out, hard=True)
+
+            all_pol_acs = []
+            for i, pi, ob in zip(range(self.nagents), self.policies, obs):
+                if i == agent_i:
+                    all_pol_acs.append(curr_pol_vf_in)
+                elif self.discrete_action:
+                    all_pol_acs.append(onehot_from_logits(pi(ob)))
+                else:
+                    all_pol_acs.append(pi(ob))
+            vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
+
+            # Actor update
             pol_loss = -curr_agent.critic(vf_in).mean()
             pol_loss += (curr_pol_out**2).mean() * 1e-3
             pol_loss.backward()
-            if parallel:
-                average_gradients(curr_agent.policy)
             torch.nn.utils.clip_grad_norm_(curr_agent.policy.parameters(), 0.5)
             curr_agent.policy_optimizer.step()
         else:
@@ -302,29 +259,35 @@ class MADDPG(object):
             a.critic.train()
             a.target_policy.train()
             a.target_critic.train()
+
         self.distilled_agent.policy.train()
         self.distilled_agent.critic.train()
         self.distilled_agent.target_policy.train()
         self.distilled_agent.target_critic.train()
+
         if device == 'gpu':
             fn = lambda x: x.cuda()
         else:
             fn = lambda x: x.cpu()
+
         if not self.pol_dev == device:
             for a in self.agents:
                 a.policy = fn(a.policy)
             self.distilled_agent.policy = fn(self.distilled_agent.policy)
             self.pol_dev = device
+
         if not self.critic_dev == device:
             for a in self.agents:
                 a.critic = fn(a.critic)
             self.distilled_agent.critic = fn(self.distilled_agent.critic)
             self.critic_dev = device
+
         if not self.trgt_pol_dev == device:
             for a in self.agents:
                 a.target_policy = fn(a.target_policy)
             self.distilled_agent.target_policy = fn(self.distilled_agent.target_policy)
             self.trgt_pol_dev = device
+
         if not self.trgt_critic_dev == device:
             for a in self.agents:
                 a.target_critic = fn(a.target_critic)
@@ -334,11 +297,14 @@ class MADDPG(object):
     def prep_rollouts(self, device='cpu'):
         for a in self.agents:
             a.policy.eval()
+
         self.distilled_agent.policy.eval()
+
         if device == 'gpu':
             fn = lambda x: x.cuda()
         else:
             fn = lambda x: x.cpu()
+
         # only need main policy for rollouts
         if not self.pol_dev == device:
             for a in self.agents:

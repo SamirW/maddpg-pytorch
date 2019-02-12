@@ -1,12 +1,10 @@
-import torch
 from torch import Tensor
-from torch.autograd import Variable
 from torch.optim import Adam
 from torch.distributions import Categorical
 import numpy as np
-from .networks import MLPNetwork, SimpleMLPNetwork
+from .networks import MLPNetwork
 from .misc import hard_update, gumbel_softmax, onehot_from_logits
-from .noise import OUNoise
+
 
 class DDPGAgent(object):
     """
@@ -21,34 +19,43 @@ class DDPGAgent(object):
             num_out_pol (int): number of dimensions for policy output
             num_in_critic (int): number of dimensions for critic input
         """
-        self.policy = MLPNetwork(num_in_pol, num_out_pol,
-                                 hidden_dim=hidden_dim,
-                                 constrain_out=True,
-                                 discrete_action=discrete_action)
-        self.critic = MLPNetwork(num_in_critic, 1,
-                                 hidden_dim=hidden_dim,
-                                 constrain_out=False)
-        self.target_policy = MLPNetwork(num_in_pol, num_out_pol,
-                                        hidden_dim=hidden_dim,
-                                        constrain_out=True,
-                                        discrete_action=discrete_action)
-        self.target_critic = MLPNetwork(num_in_critic, 1,
-                                        hidden_dim=hidden_dim,
-                                        constrain_out=False)
-        hard_update(self.target_policy, self.policy)
-        hard_update(self.target_critic, self.critic)
+        self.policy = MLPNetwork(
+            num_in_pol, num_out_pol,
+            hidden_dim=hidden_dim,
+            constrain_out=True,
+            discrete_action=discrete_action)
+
+        self.critic = MLPNetwork(
+            num_in_critic, 1,
+            hidden_dim=hidden_dim,
+            constrain_out=False)
+
+        self.target_policy = MLPNetwork(
+            num_in_pol, num_out_pol,
+            hidden_dim=hidden_dim,
+            constrain_out=True,
+            discrete_action=discrete_action)
+
+        self.target_critic = MLPNetwork(
+            num_in_critic, 1,
+            hidden_dim=hidden_dim,
+            constrain_out=False)
+
+        hard_update(target=self.target_policy, source=self.policy)
+        hard_update(target=self.target_critic, source=self.critic)
+
         self.policy_optimizer = Adam(self.policy.parameters(), lr=lr)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=lr)
-        if not discrete_action:
-            self.exploration = OUNoise(num_out_pol)
-        else:
-            self.exploration = 0.3  # epsilon for eps-greedy
+
+        self.exploration = 0.3  # epsilon for eps-greedy
         self.discrete_action = discrete_action
-        self.max_entropy = Categorical(logits=Tensor(np.ones((1,num_out_pol)))).entropy()
+        assert discrete_action is True
+        self.max_entropy = Categorical(logits=Tensor(np.ones((1, num_out_pol)))).entropy()
 
     def reset_noise(self):
         if not self.discrete_action:
-            self.exploration.reset()
+            raise ValueError()
+            self.exploration.reset()  # For OU Noise
 
     def reset(self):
         self.policy.randomize()
@@ -71,22 +78,14 @@ class DDPGAgent(object):
         Outputs:
             action (PyTorch Variable): Actions for this agent
         """
+        assert self.discrete_action is True
+
         action = self.policy(obs)
-        if self.discrete_action:
-            if explore:
-                action = gumbel_softmax(action, hard=True)
-            else:
-                # with torch.no_grad():
-                #     entropy = Categorical(logits=action).entropy()
-                #     entropy_ratio = entropy/self.max_entropy
-                #     weight = (1-entropy_ratio).numpy()
-                #     print(weight)
-                action = onehot_from_logits(action)
-        else:  # continuous action
-            if explore:
-                action += Variable(Tensor(self.exploration.noise()),
-                                   requires_grad=False)
-            action = action.clamp(-1, 1)
+        if explore:
+            action = gumbel_softmax(action, hard=True)
+        else:
+            action = onehot_from_logits(action)
+
         return action
 
     def action_logits(self, obs):

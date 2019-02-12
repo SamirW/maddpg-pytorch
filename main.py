@@ -161,7 +161,7 @@ if __name__ == '__main__':
         help="How long to skip actor updates")
     parser.add_argument(
         "--n_exploration_eps", 
-        default=25000, 
+        default=5000, 
         type=int)
     parser.add_argument(
         "--init_noise_scale", 

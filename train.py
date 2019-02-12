@@ -61,8 +61,8 @@ def train(maddpg, env, replay_buffer, config, log, logger, run_dir, log_dir):
 
             # Get MADDPG critic values for debugging
             critics = maddpg.get_critic_vals(torch_obs, torch_agent_actions)
-            logger.add_scalar('debug/critic0', critics[0][0].detach().numpy()[0], ep_i)
-            logger.add_scalar('debug/critic1', critics[1][0].detach().numpy()[0], ep_i)
+            logger.add_scalar('debug/critic0', critics[0].detach().numpy()[0][0], ep_i)
+            logger.add_scalar('debug/critic1', critics[1].detach().numpy()[0][0], ep_i)
 
             # MADDPG update
             if ep_i < config.eval_ep:
@@ -70,14 +70,14 @@ def train(maddpg, env, replay_buffer, config, log, logger, run_dir, log_dir):
                     if t % config.steps_per_update == 0:
                         maddpg.prep_training(device='cpu')
 
-                        for u_i in range(config.n_rollout_threads):
-                            for a_i in range(maddpg.nagents):
-                                sample = replay_buffer.sample(config.batch_size, to_gpu=False)
-                                if ((ep_i > config.flip_ep) and (ep_i < (config.flip_ep + config.skip_actor_length))):
-                                    maddpg.update(sample, a_i, logger=logger, skip_actor=True)
-                                else:
-                                    maddpg.update(sample, a_i, logger=logger)
-                            maddpg.update_all_targets()
+                        for a_i in range(maddpg.nagents):
+                            sample = replay_buffer.sample(config.batch_size, to_gpu=False)
+                            if ((ep_i > config.flip_ep) and (ep_i < (config.flip_ep + config.skip_actor_length))):
+                                raise ValueError()
+                                maddpg.update(sample, a_i, logger=logger, skip_actor=True)
+                            else:
+                                maddpg.update(sample, a_i, logger=logger)
+                        maddpg.update_all_targets()
                         maddpg.prep_rollouts(device='cpu')
 
         logger.add_scalar('joint/mean_episode_rewards', ep_rew, ep_i)
