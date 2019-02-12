@@ -6,12 +6,12 @@ from algorithms.maddpg import MADDPG
 from utils.heatmap import *
 from utils.buffer import ReplayBuffer
 
-plots = [0, 500, 600, 800, 1000, 1500, 2000, 2500]
+plots = [0, 500, 1000, 1500, 2000, 2500]
 names = ["before_distillation"]
 
 def run(config):
     model_dir = Path('./models') / config.env_id / config.model_name / "run{}".format(config.run)
-    # for i in range(1000):
+    # for i in plots:
     for name in names:
         try:
             model_dir_folder = model_dir / "models"
@@ -28,7 +28,7 @@ def run(config):
             maddpg.distill(256, 1024, replay_buffer, hard=True)
 
             print("Creating distilled heatmap")
-            distilled_heatmap(maddpg, save=config.save)
+            heatmap(maddpg, title="Distilled Policies", save=config.save)
         except:
             pass
 

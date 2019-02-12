@@ -240,8 +240,6 @@ class MADDPG(object):
 
         # Repeat multiple times
         for i in range(num_distill):
-            if (i % 10) == 0:
-                print(i)
             # Get samples
             sample = replay_buffer.sample(batch_size, to_gpu=False)
             obs, acs, _, _, _ = sample
@@ -257,21 +255,15 @@ class MADDPG(object):
             all_critic_logits = []
             distilled_critic_logits = []
             for p, crit in enumerate(self.critics):
-                if p == 0:
-                    obs_in = obs
-                    acs_in = acs 
-                else:
-                    obs_in = list(reversed(obs))
-                    acs_in = list(reversed(acs))
-                vf_in = torch.cat((*obs_in, *acs_in), dim=1)
+                vf_in = torch.cat((*obs, *acs), dim=1)
                 all_critic_logits.append(crit(vf_in))
                 distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
 
 
             for j, agent in enumerate(self.agents):
                 # Skip agent zero
-                if j == 0:
-                    continue
+                # if j == 0:
+                    # continue
 
                 # Distill agent
                 self.distilled_agent.policy_optimizer.zero_grad()
@@ -311,15 +303,6 @@ class MADDPG(object):
                 # a.critic.randomize()
                 a.critic.load_state_dict(self.distilled_agent.critic.state_dict())
                 a.target_critic.load_state_dict(a.critic.state_dict())
-
-        # # Test
-        # sample = replay_buffer.sample(batch_size, to_gpu=False)
-        # obs, acs, rews, next_obs, dones = sample
-
-        # vf_in = torch.cat((*obs, *acs), dim=1)
-        # for i, crit in enumerate(self.critics):
-        #     print("Agent {}: {}".format(i, crit(vf_in)))
-        # print("Distilled Agent: {}".format(self.distilled_agent.critic(vf_in)))
 
     def prep_training(self, device='gpu'):
         for a in self.agents:

@@ -6,23 +6,31 @@ from algorithms.maddpg import MADDPG
 from utils.heatmap4 import *
 from utils.buffer import ReplayBuffer
 
+plots = [0, 500, 1000, 1500, 2000, 2500]
+names = ["before_distillation"]
+
 def run(config):
     model_dir = Path('./models') / config.env_id / config.model_name / "run{}".format(config.run)
-    model_file = str(model_dir / "model.pt")
+    for i in plots:
+    # for name in names:
+        try:
+            model_dir_folder = model_dir / "models"
+            model_file = str(model_dir_folder / "model{}.pt".format(i))
+            # model_file = str(model_dir_folder / "{}.pt".format(name))
 
-    print("Loading environment")
-    maddpg = MADDPG.init_from_save(model_file)
-    with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
-        replay_buffer = pickle.load(input)
+            maddpg = MADDPG.init_from_save(model_file)
+            print("Creating heatmap")
+            heatmap(maddpg, title="Agent Policies Before Distillation", save=config.save)
 
-    print("Creating heatmap")
-    heatmap(maddpg, title="Agent Policies Before Distillation", save=config.save)
+            # print("Distilling")
+            # with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
+            #     replay_buffer = pickle.load(input)
+            # maddpg.distill(256, 1024, replay_buffer, hard=True)
 
-    # print("Distilling")
-    # maddpg.distill(256, 512, replay_buffer, hard=True)
-    
-    # print("Creating distilled heatmap")
-    # distilled_heatmap(maddpg, save=config.save)
+            # print("Creating distilled heatmap")
+            # distilled_heatmap(maddpg, save=config.save)
+        except:
+            pass
 
     plt.show()
 
