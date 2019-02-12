@@ -117,15 +117,6 @@ def heatmap(maddpg, title="Agent Policies", save=False):
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
                     val_dict[tuple(agent_pos)] = vf_out.mean()
 
-            if ((i+j) == 0) or ((i+j) == 2):
-                print(titles[i][j])
-                print("Blue pose: ", agent_poses[0])
-                print("Red pose: ", agent_poses[1])
-                print("O_1: ", vf_in[0][:12])
-                print("O_2: ", vf_in[0][12:24])
-                print("a_1: ", vf_in[0][24:29])
-                print("a_2: ", vf_in[0][29:])
-
             add_arrows(ax, delta_dict, arrow_color=color[i], rescale=False, q_vals=val_dict)
             add_contours(ax2, val_dict, fig2)
             for l in range(len(agent_poses)):

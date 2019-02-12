@@ -9,11 +9,11 @@ params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
 ENV = "simple_spread_flip"
-BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/analyze_vf/"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
 FIGURE_NAME = "figures/2_agent/analyzing_vf.png"
 
 CONV_SIZE = 50
-NUM_SEEDS = 10
+NUM_SEEDS = 15
 
 SHOW = True
 SAVE = False
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     legends = []
 
     """
-        Baseline
+        no_distill
     """
     no_distill_data = []
     no_distill_data_ep = []
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
-            "env::{}_seed::{}_comment::baseline_log".format(ENV, i+1)
+            "env::{}_seed::{}_comment::no_distill_log".format(ENV, i+1)
         
         try:
             data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     datas.append(no_distill_data)  
     datas_x.append(no_distill_data_ep)
-    legends.append(r'Learn from Scratch')
+    legends.append(r'No Distill After Flip')
 
     """
         Distilled
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
-            "env::{}_seed::{}_comment::distill_eval_log".format(ENV, i+1)
+            "env::{}_seed::{}_comment::distill_log".format(ENV, i+1)
     
         try:
             data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
@@ -74,55 +74,55 @@ if __name__ == "__main__":
 
     datas.append(distill_data)
     datas_x.append(distill_data_ep)
-    legends.append(r'Distill and Evaluate (No Learning)')
+    legends.append(r'Distill and Learn')
 
     """
-        No Distillation
+        Distill Pass Actor
     """
-    no_distill_eval = []
-    no_distill_eval_ep = []
+    distill_pass_actor = []
+    distill_pass_actor_ep = []
 
     for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
-            "env::{}_seed::{}_comment::no_distill_eval_log".format(ENV, i+1)
+            "env::{}_seed::{}_comment::distill_pass_actor_log".format(ENV, i+1)
     
         try:
             data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
             data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
-            no_distill_eval.append(data)
-            no_distill_eval_ep.append(data_x)
+            distill_pass_actor.append(data)
+            distill_pass_actor_ep.append(data_x)
         except:
             continue
 
-    datas.append(no_distill_eval)
-    datas_x.append(no_distill_eval_ep)
-    legends.append(r'No Distill and Evaluate (No Learning)')
+    datas.append(distill_pass_actor)
+    datas_x.append(distill_pass_actor_ep)
+    legends.append(r'Critic-Only Distill and Learn')
 
     """
         Separate ER Distillation
     """
-    # separate_replay = []
-    # separate_replay_ep = []
+    distill_pass_critic = []
+    distill_pass_critic_ep = []
 
-    # for i in range(NUM_SEEDS):
-    #     path = \
-    #         BASE_DIR + \
-    #         "env::{}_seed::{}_comment::distill_learn_skip_1000_log".format(ENV, i+1)
+    for i in range(NUM_SEEDS):
+        path = \
+            BASE_DIR + \
+            "env::{}_seed::{}_comment::distill_pass_critic_log".format(ENV, i+1)
     
-    #     try:
-    #         data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
-    #         data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+        try:
+            data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+            data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
-    #         separate_replay.append(data)
-    #         separate_replay_ep.append(data_x)
-    #     except:
-    #         continue
+            distill_pass_critic.append(data)
+            distill_pass_critic_ep.append(data_x)
+        except:
+            continue
 
-    # datas.append(separate_replay)
-    # datas_x.append(separate_replay_ep)
-    # legends.append(r'Distill and Learn (only Critic for 1000 steps)')
+    datas.append(distill_pass_critic)
+    datas_x.append(distill_pass_critic_ep)
+    legends.append(r'Actor-Only Distill and Learn')
 
     """
         Plot data
