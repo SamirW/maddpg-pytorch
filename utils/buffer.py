@@ -1,7 +1,7 @@
 import numpy as np
 from torch import Tensor
 from torch.autograd import Variable
-from scipy.spatial.distance import pdist, squareform
+
 
 class ReplayBuffer(object):
     """
@@ -30,7 +30,6 @@ class ReplayBuffer(object):
             self.next_obs_buffs.append(np.zeros((max_steps, odim)))
             self.done_buffs.append(np.zeros(max_steps))
 
-
         self.filled_i = 0  # index of first empty location in buffer (last index when full)
         self.curr_i = 0  # current index to write to (ovewrite oldest data)
 
@@ -39,7 +38,6 @@ class ReplayBuffer(object):
 
     def __len__(self):
         return self.filled_i
-
 
     def reset(self):
         for i in range(len(self.obs_buffs)):
@@ -55,7 +53,7 @@ class ReplayBuffer(object):
     def push(self, observations, actions, rewards, next_observations, dones):
         nentries = observations.shape[0]  # handle multiple parallel environments
         if self.curr_i + nentries > self.max_steps:
-            rollover = self.max_steps - self.curr_i # num of indices to roll over
+            rollover = self.max_steps - self.curr_i  # num of indices to roll over
             for agent_i in range(self.num_agents):
                 self.obs_buffs[agent_i] = np.roll(self.obs_buffs[agent_i],
                                                   rollover, axis=0)
@@ -128,5 +126,5 @@ class ReplayBuffer(object):
         h = np.median(dists_sq, axis=1)
         h = np.sqrt(0.5 * h[:, None] / np.log(data.shape[0] + 1))
 
-        kernels = np.exp(-1*dists_sq / h**2 / 2)
+        kernels = np.exp(-1 * dists_sq / h**2 / 2)
         return Tensor(np.mean(kernels, axis=1))
