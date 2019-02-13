@@ -134,7 +134,7 @@ class MADDPG(object):
                 all_trgt_acs = [pi(nobs) for pi, nobs in zip(self.target_policies,
                                                              next_obs)]
 
-            if agent_i > 0:
+            if agent_i > 10:
                 next_obs_in = list(reversed(next_obs))
                 all_trgt_acs_in = list(reversed(all_trgt_acs))
             else:
@@ -156,7 +156,7 @@ class MADDPG(object):
                         curr_agent.target_critic(trgt_vf_in) *
                         (1 - dones[agent_i].view(-1, 1)))
 
-        if agent_i > 0:
+        if agent_i > 10:
             obs_in = list(reversed(obs))
             acs_in = list(reversed(acs))
         else:
@@ -201,7 +201,7 @@ class MADDPG(object):
                     else:
                         all_pol_acs.append(pi(ob))
 
-                if agent_i > 0:
+                if agent_i > 10:
                     obs_in = list(reversed(obs))
                     all_pol_acs_in = list(reversed(all_pol_acs))
                 else:
@@ -261,12 +261,13 @@ class MADDPG(object):
             all_critic_logits = []
             distilled_critic_logits = []
             for p, crit in enumerate(self.critics):
-                if p > 0:
+                vf_in = torch.cat((*obs, *acs), dim=1)
+                if np.random.random() < 0.5:
                     obs.reverse()
                     acs.reverse()
-                vf_in = torch.cat((*obs, *acs), dim=1)
+                vf_in_distilled = torch.cat((*obs, *acs), dim=1)
                 all_critic_logits.append(crit(vf_in))
-                distilled_critic_logits.append(self.distilled_agent.critic(vf_in))
+                distilled_critic_logits.append(self.distilled_agent.critic(vf_in_distilled))
 
 
             for j, agent in enumerate(self.agents):
