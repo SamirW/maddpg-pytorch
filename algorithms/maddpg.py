@@ -1,3 +1,4 @@
+import copy
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -258,17 +259,22 @@ class MADDPG(object):
                 distilled_actor_logits.append(self.distilled_agent.policy(ob))
 
             # Find critic outputs for each agent + distilled
+            # Reverse distilled vf_input about 50% of the time to
+            # ensure distilled critic knows what to do in both situations
             all_critic_logits = []
             distilled_critic_logits = []
             for p, crit in enumerate(self.critics):
                 vf_in = torch.cat((*obs, *acs), dim=1)
-                if p < 0:
-                    obs.reverse()
-                    acs.reverse()
-                vf_in_distilled = torch.cat((*obs, *acs), dim=1)
+                if np.random.random() < 0.5:
+                    dist_obs = list(reversed(obs))
+                    dist_acs = list(reversed(acs))
+                else:
+                    dist_obs = copy.deepcopy(obs)
+                    dist_acs = copy.deepcopy(acs) 
+
+                vf_in_distilled = torch.cat((*dist_obs, *dist_acs), dim=1)
                 all_critic_logits.append(crit(vf_in))
                 distilled_critic_logits.append(self.distilled_agent.critic(vf_in_distilled))
-
 
             for j, agent in enumerate(self.agents):
 

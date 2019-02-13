@@ -52,7 +52,7 @@ def add_contours(axes, q_vals, fig):
         x_index = np.where(X==key[0])[0][0]
         y_index = np.where(Y==key[1])[0][0]
         Z[x_index, y_index] = q_vals[key]
-    CS = axes.contourf(X, Y, Z, 10)
+    CS = axes.contourf(X, Y, Z, 25)
     fig.colorbar(CS, ax=axes, shrink=0.9)
 
 def heatmap(maddpg, title="Agent Policies", save=False):
@@ -105,10 +105,6 @@ def heatmap(maddpg, title="Agent Policies", save=False):
 
                     obs = [o.repeat(2,1) for o in torch_obs]
                     act = [a.repeat(2,1) for a in torch_agent_onehots]
-
-                    # if i > 0:
-                    #     obs.reverse()
-                    #     act.reverse()
 
                     vf_in = torch.cat((*obs, *act), dim=1)
                     vf_out = maddpg.agents[i].critic(vf_in)
