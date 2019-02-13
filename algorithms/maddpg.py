@@ -262,7 +262,7 @@ class MADDPG(object):
             distilled_critic_logits = []
             for p, crit in enumerate(self.critics):
                 vf_in = torch.cat((*obs, *acs), dim=1)
-                if np.random.random() < 0.5:
+                if p < 0:
                     obs.reverse()
                     acs.reverse()
                 vf_in_distilled = torch.cat((*obs, *acs), dim=1)
