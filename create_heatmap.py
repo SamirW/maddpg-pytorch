@@ -25,7 +25,7 @@ def run(config):
             print("Distilling")
             with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
                 replay_buffer = pickle.load(input)
-            maddpg.distill(1024, 1024, replay_buffer, hard=True)
+            maddpg.distill(256, 1024, replay_buffer, hard=True)
 
             print("Creating distilled heatmap")
             heatmap(maddpg, title="Distilled Policies", save=config.save)
