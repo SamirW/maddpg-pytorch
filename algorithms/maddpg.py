@@ -134,13 +134,7 @@ class MADDPG(object):
                 all_trgt_acs = [pi(nobs) for pi, nobs in zip(self.target_policies,
                                                              next_obs)]
 
-            if agent_i > 10:
-                next_obs_in = list(reversed(next_obs))
-                all_trgt_acs_in = list(reversed(all_trgt_acs))
-            else:
-                next_obs_in = next_obs 
-                all_trgt_acs_in = all_trgt_acs
-            trgt_vf_in = torch.cat((*next_obs_in, *all_trgt_acs_in), dim=1)
+            trgt_vf_in = torch.cat((*next_obs, *all_trgt_acs), dim=1)
         else:  # DDPG
             if self.discrete_action:
                 trgt_vf_in = torch.cat((next_obs[agent_i],
@@ -156,15 +150,8 @@ class MADDPG(object):
                         curr_agent.target_critic(trgt_vf_in) *
                         (1 - dones[agent_i].view(-1, 1)))
 
-        if agent_i > 10:
-            obs_in = list(reversed(obs))
-            acs_in = list(reversed(acs))
-        else:
-            obs_in = obs
-            acs_in = acs 
-
         if self.alg_types[agent_i] == 'MADDPG':
-            vf_in = torch.cat((*obs_in, *acs_in), dim=1)
+            vf_in = torch.cat((*obs, *acs), dim=1)
         else:  # DDPG
             vf_in = torch.cat((obs[agent_i], acs[agent_i]), dim=1)
 
@@ -201,14 +188,7 @@ class MADDPG(object):
                     else:
                         all_pol_acs.append(pi(ob))
 
-                if agent_i > 10:
-                    obs_in = list(reversed(obs))
-                    all_pol_acs_in = list(reversed(all_pol_acs))
-                else:
-                    next_obs_in = obs
-                    all_pol_acs_in = all_pol_acs
-
-                vf_in = torch.cat((*obs_in, *all_pol_acs_in), dim=1)
+                vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
             else:  # DDPG
                 vf_in = torch.cat((obs[agent_i], curr_pol_vf_in),
                                   dim=1)
@@ -250,17 +230,28 @@ class MADDPG(object):
             sample = replay_buffer.sample(batch_size, to_gpu=False)
             obs, acs, _, _, _ = sample
 
+            # Find actor outputs for each agent + distilled
+            all_actor_logits = []
+            distilled_actor_logits = []
+            for pi, ob in zip(self.policies, obs):
+                all_actor_logits.append(pi(ob))
+                distilled_actor_logits.append(self.distilled_agent.policy(ob))
+
+            # Find critic outputs for each agent + distilled
+            all_critic_logits = []
+            distilled_critic_logits = []
+            for crit in self.critics:
+                vf_in = torch.cat((*obs, *acs), dim=1)
+                all_critic_logits.append(crit(vf_in))
+
+                exit()
+                
+                vf_in_distilled = torch.cat((*obs, *acs), dim=1)
+                distilled_critic_logits.append(self.distilled_agent.critic(vf_in_distilled))
+
             for j, agent in enumerate(self.agents):
 
                 if not pass_actor:
-
-                    # Find actor outputs for each agent + distilled
-                    all_actor_logits = []
-                    distilled_actor_logits = []
-                    for pi, ob in zip(self.policies, obs):
-                        all_actor_logits.append(pi(ob))
-                        distilled_actor_logits.append(self.distilled_agent.policy(ob))
-
                     # Distill agent
                     self.distilled_agent.policy_optimizer.zero_grad()
 
@@ -280,17 +271,6 @@ class MADDPG(object):
                     self.distilled_agent.policy_optimizer.step()
 
                 if not pass_critic:
-
-                    # Find critic outputs for each agent + distilled
-                    all_critic_logits = []
-                    distilled_critic_logits = []
-                    for crit in self.critics:
-                        vf_in = torch.cat((*obs, *acs), dim=1)
-                        all_critic_logits.append(crit(vf_in))
-
-                        vf_in_distilled = torch.cat((*obs, *acs), dim=1)
-                        distilled_critic_logits.append(self.distilled_agent.critic(vf_in_distilled))
-
                     # Distill critic
                     self.distilled_agent.critic_optimizer.zero_grad()
 

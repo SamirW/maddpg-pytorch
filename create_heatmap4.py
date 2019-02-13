@@ -6,17 +6,17 @@ from algorithms.maddpg import MADDPG
 from utils.heatmap4 import *
 from utils.buffer import ReplayBuffer
 
-plots = [0, 500, 1000, 1500, 2000, 2500]
+# plots = [0, 500, 1000, 1500, 2000, 2500]
 names = ["before_distillation"]
 
 def run(config):
     model_dir = Path('./models') / config.env_id / config.model_name / "run{}".format(config.run)
-    for i in plots:
-    # for name in names:
+    # for i in plots:
+    for name in names:
         try:
-            model_dir_folder = model_dir / "models"
-            model_file = str(model_dir_folder / "model{}.pt".format(i))
-            # model_file = str(model_dir_folder / "{}.pt".format(name))
+            # model_file = str(model_dir / "models" / "model{}.pt".format(i))
+            # model_file = str(model_dir / "models" / "{}.pt".format(name))
+            model_file = str(model_dir / "model.pt")
 
             maddpg = MADDPG.init_from_save(model_file)
             print("Creating heatmap")
@@ -25,10 +25,10 @@ def run(config):
             # print("Distilling")
             # with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
             #     replay_buffer = pickle.load(input)
-            # maddpg.distill(256, 1024, replay_buffer, hard=True)
+            # maddpg.distill(64, 1024, replay_buffer, hard=True)
 
             # print("Creating distilled heatmap")
-            # distilled_heatmap(maddpg, save=config.save)
+            # heatmap(maddpg, title="Distilled Policies", save=config.save)
         except:
             pass
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-python main.py simple_spread_flip_4 test --seed 3 --n_episodes 3500 --hard_distill_ep 3500 --log_comment "heatmap_data" --save_buffer
+python main.py simple_spread_flip_4 test --seed 3 --n_episodes 7000 --log_comment "heatmap_data" --save_buffer
 
 # seed=3
 # while [ $seed -lt 4 ];

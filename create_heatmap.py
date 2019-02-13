@@ -14,9 +14,9 @@ def run(config):
     # for i in plots:
     for name in names:
         try:
-            model_dir_folder = model_dir / "models"
-            # model_file = str(model_dir_folder / "model{}.pt".format(i))
-            model_file = str(model_dir_folder / "{}.pt".format(name))
+            # model_file = str(model_dir / "models" / "model{}.pt".format(i))
+            # model_file = str(model_dir / "models" / "{}.pt".format(name))
+            model_file = str(model_dir / "model.pt")
 
             maddpg = MADDPG.init_from_save(model_file)
             print("Creating heatmap")

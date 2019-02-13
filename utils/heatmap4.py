@@ -7,10 +7,10 @@ from pathlib import Path
 from torch.autograd import Variable
 from utils.misc import onehot_from_logits
 
-lndmrk_poses = np.array([[-0.75, 0.75], [0.75, 0.75], [0.75, -0.75], [-0.75, -0.75]])
+lndmrk_poses = np.array([[0.75, 0.75], [-0.75, 0.75], [-0.75, -0.75], [0.75, -0.75]])
 default_agent_poses = [[0.5, 0.5], [-0.5, 0.5], [-0.5, -0.5], [0.5, -0.5]]
 flipped_agent_poses = [[0.5, -0.5], [-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]]
-color = {0: 'b', 1: 'r', 2: 'g', 3: [0.65, 0.65, 0.65]}
+color = {0: 'b', 1: 'r', 2: 'g', 3: [0.85, 0.85, 0.85]}
 num_arrows = 21
 
 def get_observations(agent_poses):
@@ -91,7 +91,6 @@ def heatmap(maddpg, title="Agent Policies", save=False):
                     else:
                         agent_poses = np.copy(flipped_agent_poses)
                     agent_poses[i] = agent_pos
-
                     obs = get_observations(agent_poses)  # Agent 0 (Blue) and 1 (Red)
                     maddpg.prep_rollouts(device='cpu')
 
@@ -103,16 +102,14 @@ def heatmap(maddpg, title="Agent Policies", save=False):
                     action = torch_agent_logits[i].data.numpy()[0]
                     # action = torch_agent_onehots[i].data.numpy()[0]
 
-                    obs = [o.repeat(2,1) for o in torch_obs]
-                    act = [a.repeat(2,1) for a in torch_agent_onehots]
+                    # obs = [o.repeat(2,1) for o in torch_obs]
+                    # act = [a.repeat(2,1) for a in torch_agent_onehots]
 
-                    # if i > 0:
-                    #     obs.reverse()
-                    #     act.reverse()
+                    # vf_in = torch.cat((*obs, *act), dim=1)
+                    # vf_out = maddpg.agents[i].critic(vf_in)
 
-                    vf_in = torch.cat((*obs, *act), dim=1)
-                    vf_out = maddpg.agents[i].critic(vf_in)
-                    # vf_out = maddpg.agents[0].critic(vf_in)
+                    critic_vals = maddpg.get_critic_vals(torch_obs, torch_agent_onehots)
+                    vf_out = critic_vals[i]
 
                     delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
                     val_dict[tuple(agent_pos)] = vf_out.mean()
