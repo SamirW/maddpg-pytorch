@@ -135,13 +135,7 @@ class MADDPG(object):
                 all_trgt_acs = [pi(nobs) for pi, nobs in zip(self.target_policies,
                                                              next_obs)]
 
-            if agent_i > 10:
-                next_obs_in = list(reversed(next_obs))
-                all_trgt_acs_in = list(reversed(all_trgt_acs))
-            else:
-                next_obs_in = next_obs 
-                all_trgt_acs_in = all_trgt_acs
-            trgt_vf_in = torch.cat((*next_obs_in, *all_trgt_acs_in), dim=1)
+            trgt_vf_in = torch.cat((*next_obs, *all_trgt_acs), dim=1)
         else:  # DDPG
             if self.discrete_action:
                 trgt_vf_in = torch.cat((next_obs[agent_i],
@@ -157,20 +151,13 @@ class MADDPG(object):
                         curr_agent.target_critic(trgt_vf_in) *
                         (1 - dones[agent_i].view(-1, 1)))
 
-        if agent_i > 10:
-            obs_in = list(reversed(obs))
-            acs_in = list(reversed(acs))
-        else:
-            obs_in = obs
-            acs_in = acs 
-
         if self.alg_types[agent_i] == 'MADDPG':
-            vf_in = torch.cat((*obs_in, *acs_in), dim=1)
+            vf_in = torch.cat((*obs, *acs), dim=1)
         else:  # DDPG
             vf_in = torch.cat((obs[agent_i], acs[agent_i]), dim=1)
 
         actual_value = curr_agent.critic(vf_in)
-            
+
         vf_loss = MSELoss(actual_value, target_value.detach())
         vf_loss.backward()
         if parallel:
@@ -202,14 +189,7 @@ class MADDPG(object):
                     else:
                         all_pol_acs.append(pi(ob))
 
-                if agent_i > 10:
-                    obs_in = list(reversed(obs))
-                    all_pol_acs_in = list(reversed(all_pol_acs))
-                else:
-                    next_obs_in = obs
-                    all_pol_acs_in = all_pol_acs
-
-                vf_in = torch.cat((*obs_in, *all_pol_acs_in), dim=1)
+                vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
             else:  # DDPG
                 vf_in = torch.cat((obs[agent_i], curr_pol_vf_in),
                                   dim=1)
@@ -226,7 +206,8 @@ class MADDPG(object):
         if logger is not None:
             logger.add_scalars('agent%i/losses' % agent_i,
                                {'vf_loss': vf_loss,
-                                'pol_loss': pol_loss},
+                                'pol_loss': pol_loss,
+                                'vf': actual_value.mean()},
                                self.niter)
 
     def update_all_targets(self):

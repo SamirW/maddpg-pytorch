@@ -3,7 +3,8 @@ import pickle
 import matplotlib.pyplot as plt
 from pathlib import Path
 from algorithms.maddpg import MADDPG
-from utils.heatmap import *
+from utils.heatmap import heatmap
+from utils.heatmap4 import heatmap4
 from utils.buffer import ReplayBuffer
 
 plots = [1400, 1500]
@@ -14,23 +15,28 @@ def run(config):
     # for i in plots:
     for name in names:
         try:
-            model_dir_folder = model_dir / "models"
-            # model_file = str(model_dir_folder / "model{}.pt".format(i))
-            model_file = str(model_dir_folder / "{}.pt".format(name))
+            # model_file = str(model_dir / "models" / "model{}.pt".format(i))
+            # model_file = str(model_dir / "models" / "{}.pt".format(name))
+            model_file = str(model_dir / "model.pt")
 
             maddpg = MADDPG.init_from_save(model_file)
+            if maddpg.nagents == 2:
+                heatmap_fn = heatmap 
+            else: # 4 agents
+                heatmap_fn = heatmap4
+
             print("Creating heatmap")
-            heatmap(maddpg, title="Agent Policies Before Distillation", save=config.save)
+            heatmap_fn(maddpg, title="Agent Policies Before Distillation", save=config.save)
 
-            print("Distilling")
-            with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
-                replay_buffer = pickle.load(input)
-            maddpg.distill(1024, 1024, replay_buffer, hard=True, pass_actor=True)
+            # print("Distilling")
+            # with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
+            #     replay_buffer = pickle.load(input)
+            # maddpg.distill(256, 1024, replay_buffer, hard=True)
 
-            print("Creating distilled heatmap")
-            heatmap(maddpg, title="Distilled Policies", save=config.save)
-        except:
-            pass
+            # print("Creating distilled heatmap")
+            # heatmap_fn(maddpg, title="Distilled Policies", save=config.save)
+        except Exception as e:
+            print(e)
 
     plt.show()
 
