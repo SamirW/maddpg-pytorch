@@ -6,6 +6,7 @@ from algorithms.maddpg import MADDPG
 from utils.heatmap import heatmap
 from utils.heatmap3 import heatmap3
 from utils.heatmap4 import heatmap4
+from utils.heatmap6 import heatmap6
 from utils.buffer import ReplayBuffer
 
 plots = [0, 200, 400, 600, 800, 1000]
@@ -25,8 +26,10 @@ def run(config):
                 heatmap_fn = heatmap 
             elif maddpg.nagents == 3:
                 heatmap_fn = heatmap3
-            else: # 4 agents
+            elif maddpg.nagents == 4:
                 heatmap_fn = heatmap4
+            else: # 6 agents
+                heatmap_fn = heatmap6
 
             print("Creating heatmap")
             heatmap_fn(maddpg, title="Agent Policies Before Distillation", save=config.save)
