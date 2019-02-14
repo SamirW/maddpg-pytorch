@@ -246,12 +246,10 @@ class MADDPG(object):
             distilled_critic_logits = []
             for p, crit in enumerate(self.critics):
                 vf_in = torch.cat((*obs, *acs), dim=1)
-                if np.random.random() < 0.5:
-                    dist_obs = list(reversed(obs))
-                    dist_acs = list(reversed(acs))
-                else:
-                    dist_obs = copy.deepcopy(obs)
-                    dist_acs = copy.deepcopy(acs) 
+                
+                dist_vf_in = list(zip(obs, acs))
+                np.random.shuffle(dist_vf_in)
+                dist_obs, dist_acs = zip(*dist_vf_in) 
 
                 vf_in_distilled = torch.cat((*dist_obs, *dist_acs), dim=1)
                 all_critic_logits.append(crit(vf_in))

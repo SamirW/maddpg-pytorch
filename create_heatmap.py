@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from algorithms.maddpg import MADDPG
 from utils.heatmap import heatmap
+from utils.heatmap3 import heatmap3
 from utils.heatmap4 import heatmap4
 from utils.buffer import ReplayBuffer
 
-plots = [1400, 1500]
+plots = [0, 200, 400, 600, 800, 1000]
 names = ["before_distillation"]
 
 def run(config):
@@ -22,19 +23,21 @@ def run(config):
             maddpg = MADDPG.init_from_save(model_file)
             if maddpg.nagents == 2:
                 heatmap_fn = heatmap 
+            elif maddpg.nagents == 3:
+                heatmap_fn = heatmap3
             else: # 4 agents
                 heatmap_fn = heatmap4
 
             print("Creating heatmap")
             heatmap_fn(maddpg, title="Agent Policies Before Distillation", save=config.save)
 
-            # print("Distilling")
-            # with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
-            #     replay_buffer = pickle.load(input)
-            # maddpg.distill(256, 1024, replay_buffer, hard=True)
+            print("Distilling")
+            with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
+                replay_buffer = pickle.load(input)
+            maddpg.distill(512, 1024, replay_buffer, hard=True)
 
-            # print("Creating distilled heatmap")
-            # heatmap_fn(maddpg, title="Distilled Policies", save=config.save)
+            print("Creating distilled heatmap")
+            heatmap_fn(maddpg, title="Distilled Policies", save=config.save)
         except Exception as e:
             print(e)
 
