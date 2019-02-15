@@ -9,7 +9,7 @@ params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
 ENV = "simple_spread_flip"
-BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph_old/"
 FIGURE_NAME = "figures/2_agent/analyzing_vf.png"
 
 CONV_SIZE = 50
