@@ -8,12 +8,12 @@ plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
-ENV = "simple_spread_flip_3"
-BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/test/"
-FIGURE_NAME = "figures/2_agent/analyzing_vf.png"
+ENV = "simple_spread_flip"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
+FIGURE_NAME = "figures/2_agent/flip_without_prior.png"
 
 CONV_SIZE = 50
-NUM_SEEDS = 5
+NUM_SEEDS = 10
 
 SHOW = True
 SAVE = False
@@ -50,7 +50,7 @@ if __name__ == "__main__":
 
     datas.append(no_distill_data)  
     datas_x.append(no_distill_data_ep)
-    legends.append(r'No Distill After Flip')
+    legends.append(r'No Distillation')
 
     """
         Distilled
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     datas.append(distill_data)
     datas_x.append(distill_data_ep)
-    legends.append(r'Distill and Learn')
+    legends.append(r'Distill All')
 
     """
         Distill Pass Actor
@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     datas.append(distill_pass_actor)
     datas_x.append(distill_pass_actor_ep)
-    legends.append(r'Critic-Only Distill and Learn')
+    legends.append(r'Critic-Only Distill')
 
     """
         Separate ER Distillation
@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
     datas.append(distill_pass_critic)
     datas_x.append(distill_pass_critic_ep)
-    legends.append(r'Actor-Only Distill and Learn')
+    legends.append(r'Actor-Only Distill')
 
     """
         Plot data
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         x = datas_x[i_data][0]
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0)
-        error = (mean - std, mean + std)
+        error = (mean - 0.5*std, mean + 0.5*std)
 
         ax.fill_between(x, error[0], error[1], alpha=0.2)
         ax.plot(x, mean, label=legends[i_data])
@@ -142,18 +142,12 @@ if __name__ == "__main__":
 
     plt.xlabel(r'\textbf{Train Episode}', size=14)
     plt.ylabel(r'\textbf{Training Reward}', size=14)
-    plt.title(r'\textbf{Distillation Comparison}', size=15)
+    plt.title(r'\textbf{2-Agent Distillation (Flip at Episode 2000)}', size=15)
 
     plt.legend()
-    # legend = plt.legend(
-    #     bbox_to_anchor=(0., 1.07, 1., .102), 
-    #     loc=3, 
-    #     ncol=2, 
-    #     mode="expand", 
-    #     borderaxespad=0.)
 
     if SAVE:
-        plt.savefig(FIGURE_NAME, bbox_inches="tight", dpi=300) 
+        plt.savefig(FIGURE_NAME, bbox_inches="tight", dpi=600) 
 
     if SHOW:
         plt.show()
