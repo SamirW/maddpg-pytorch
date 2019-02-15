@@ -8,12 +8,12 @@ plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
-ENV = "simple_spread_flip"
-BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
+ENV = "simple_spread_flip_3"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/test/"
 FIGURE_NAME = "figures/2_agent/analyzing_vf.png"
 
 CONV_SIZE = 50
-NUM_SEEDS = 15
+NUM_SEEDS = 5
 
 SHOW = True
 SAVE = False
