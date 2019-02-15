@@ -6,15 +6,15 @@ FOLDER_NAME="maddpy-pytorch"
 pip install torch
 
 # gym
-cd /home/ubuntu/$FOLDER_NAME/thirdparty/gym
+cd /home/ubuntu/$FOLDER_NAME/src/gym
 pip install -e .
 
 # baseline
-cd /home/ubuntu/$FOLDER_NAME/thirdparty/baselines
+cd /home/ubuntu/$FOLDER_NAME/src/baselines
 pip install -e .
 
 # multiagent
-cd /home/ubuntu/$FOLDER_NAME/thirdparty/multiagent-particle-envs
+cd /home/ubuntu/$FOLDER_NAME/src/multiagent-particle-envs
 pip install -e .
 
 # etc

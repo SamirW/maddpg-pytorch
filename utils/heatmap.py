@@ -100,8 +100,8 @@ def heatmap(maddpg, title="Agent Policies", save=False):
                                  for k in range(maddpg.nagents)]
                     torch_agent_logits = maddpg.action_logits(torch_obs)
                     torch_agent_onehots = [onehot_from_logits(ac) for ac in torch_agent_logits]
-                    # action = torch_agent_logits[i].data.numpy()[0]
-                    action = torch_agent_onehots[i].data.numpy()[0]
+                    action = torch_agent_logits[i].data.numpy()[0]
+                    # action = torch_agent_onehots[i].data.numpy()[0]
 
                     obs = [o.repeat(2,1) for o in torch_obs]
                     act = [a.repeat(2,1) for a in torch_agent_onehots]
@@ -124,7 +124,7 @@ def heatmap(maddpg, title="Agent Policies", save=False):
                 ax2.add_artist(plt.Circle(lndmrk_pos, 0.05, color=[0.25, 0.25, 0.25]))
 
     fig.suptitle(title)
-    fig2.suptitle(title)
+    fig2.suptitle(title.replace('Policies', 'Value Functions'))
 
     if save:
         plt.savefig("{}.png".format(title), bbox_inches="tight", dpi=300) 

@@ -21,23 +21,24 @@ def run(config):
             model_file = str(model_dir / "model.pt")
 
             maddpg = MADDPG.init_from_save(model_file)
-            if maddpg.nagents == 2:
+            nagents = maddpg.nagents
+            if nagents == 2:
                 heatmap_fn = heatmap 
-            elif maddpg.nagents == 3:
+            elif nagents == 3:
                 heatmap_fn = heatmap3
             else: # 4 agents
                 heatmap_fn = heatmap4
 
             print("Creating heatmap")
-            heatmap_fn(maddpg, title="Agent Policies Before Distillation", save=config.save)
+            heatmap_fn(maddpg, title="{} Agent Policies Before Distillation".format(nagents), save=config.save)
 
             print("Distilling")
             with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
                 replay_buffer = pickle.load(input)
-            maddpg.distill(512, 1024, replay_buffer, hard=True)
+            maddpg.distill(256, 1024, replay_buffer, hard=True)
 
             print("Creating distilled heatmap")
-            heatmap_fn(maddpg, title="Distilled Policies", save=config.save)
+            heatmap_fn(maddpg, title="{} Agent Policies After Distillation".format(nagents), save=config.save)
         except Exception as e:
             print(e)
 
