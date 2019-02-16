@@ -107,8 +107,8 @@ def heatmap3(maddpg, title="Agent Policies", save=False):
                                  for k in range(maddpg.nagents)]
                     torch_agent_logits = maddpg.action_logits(torch_obs)
                     torch_agent_onehots = [onehot_from_logits(ac) for ac in torch_agent_logits]
-                    action = torch_agent_logits[i].data.numpy()[0]
-                    # action = torch_agent_onehots[i].data.numpy()[0]
+                    # action = torch_agent_logits[i].data.numpy()[0]
+                    action = torch_agent_onehots[i].data.numpy()[0]
 
 
                     obs = [o.repeat(2,1) for o in torch_obs]

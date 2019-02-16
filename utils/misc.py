@@ -64,7 +64,7 @@ def onehot_from_logits(logits, eps=0.0):
 def swap_obs_agents(ob):
     np_ob = ob.data.numpy()
     np_ob_out = np.copy(np_ob)
-    nagents = int(len(np_ob)/6)
+    nagents = int(len(np_ob[0])/6)
     agent_order = list(range(nagents-1))
     np.random.shuffle(agent_order)
     for agent_old, agent_new in enumerate(agent_order):
