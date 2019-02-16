@@ -7,7 +7,7 @@ from torch import Tensor
 from torch.autograd import Variable
 from gym.spaces import Box, Discrete
 from utils.networks import MLPNetwork
-from utils.misc import soft_update, hard_update, average_gradients, onehot_from_logits, gumbel_softmax, batch_gumbel_softmax
+from utils.misc import soft_update, hard_update, average_gradients, onehot_from_logits, gumbel_softmax, batch_gumbel_softmax, swap_obs_agents
 from utils.agents import DDPGAgent
 
 MSELoss = torch.nn.MSELoss()
@@ -237,7 +237,13 @@ class MADDPG(object):
             distilled_actor_logits = []
             for pi, ob in zip(self.policies, obs):
                 all_actor_logits.append(pi(ob))
-                distilled_actor_logits.append(self.distilled_agent.policy(ob))
+
+                if True:
+                    dist_ob = swap_obs_agents(ob)
+                else:
+                    dist_ob = ob
+
+                distilled_actor_logits.append(self.distilled_agent.policy(dist_ob))
 
             # Find critic outputs for each agent + distilled
             # Reverse distilled vf_input about 50% of the time to
