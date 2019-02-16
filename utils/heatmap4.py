@@ -52,7 +52,7 @@ def add_contours(axes, q_vals, fig):
     for key in q_vals.keys():
         x_index = np.where(X==key[0])[0][0]
         y_index = np.where(Y==key[1])[0][0]
-        Z[x_index, y_index] = q_vals[key]
+        Z[y_index, x_index] = q_vals[key]
     CS = axes.contourf(X, Y, Z, 25)
     fig.colorbar(CS, ax=axes, shrink=0.9)
 
@@ -115,7 +115,7 @@ def heatmap4(maddpg, title="Agent Policies", save=False):
                     val_dict[tuple(agent_pos)] = vf_out.mean()
 
             add_arrows(ax, delta_dict, arrow_color=color[i], rescale=False, q_vals=val_dict)
-            add_contours(ax, val_dict, fig)
+            add_contours(ax2, val_dict, fig2)
             for l in range(len(agent_poses)):
                 if i == l: continue
                 ax.add_artist(plt.Circle(agent_poses[l], 0.1, color=color[l]))
