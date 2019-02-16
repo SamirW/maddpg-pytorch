@@ -61,23 +61,34 @@ def onehot_from_logits(logits, eps=0.0):
     return torch.stack([argmax_acs[i] if r > eps else rand_acs[i] for i, r in
                         enumerate(torch.rand(logits.shape[0]))])
 
-def swap_obs_agents(ob):
-    np_ob = ob.data.numpy()
-    np_ob_out = np.copy(np_ob)
-    nagents = int(len(np_ob[0])/6)
+def swap_obs_agents(obs):
+    """
+    Swaps agents relative positions and communications (essentially keeps primary agent constant
+    while swapping other agents for all possible positions)
+
+    Input: array of observations
+    """
+    nagents = int(len(obs[0][0])/6)
+    
+    obs_out = []
     agent_order = list(range(nagents-1))
     np.random.shuffle(agent_order)
-    for agent_old, agent_new in enumerate(agent_order):
-        if agent_old == agent_new:
-            continue
-        agent_pos_old = 2*(nagents+2) + agent_old*2
-        agent_pos_new = 2*(nagents+2) + agent_new*2
-        agent_comm_old = 2*(nagents+2) + (agent_old+nagents-1)*2
-        agent_comm_new = 2*(nagents+2) + (agent_new+nagents-1)*2
-        np_ob_out[:, agent_pos_old:agent_pos_old+2] = np_ob[:, agent_pos_new:agent_pos_new+2]
-        np_ob_out[:, agent_comm_old:agent_comm_old+2] = np_ob[:, agent_comm_new:agent_comm_new+2]
 
-    return torch.Tensor(np_ob_out)
+    for ob in obs:
+        np_ob = ob.data.numpy()
+        np_ob_out = np.copy(np_ob)
+        for agent_old, agent_new in enumerate(agent_order):
+            if agent_old == agent_new:
+                continue
+            agent_pos_old = 2*(nagents+2) + agent_old*2
+            agent_pos_new = 2*(nagents+2) + agent_new*2
+            agent_comm_old = 2*(nagents+2) + (agent_old+nagents-1)*2
+            agent_comm_new = 2*(nagents+2) + (agent_new+nagents-1)*2
+            np_ob_out[:, agent_pos_old:agent_pos_old+2] = np_ob[:, agent_pos_new:agent_pos_new+2]
+            np_ob_out[:, agent_comm_old:agent_comm_old+2] = np_ob[:, agent_comm_new:agent_comm_new+2]
+        obs_out.append(torch.Tensor(np_ob_out))
+
+    return obs_out
 
 # modified for PyTorch from https://github.com/ericjang/gumbel-softmax/blob/master/Categorical%20VAE.ipynb
 def sample_gumbel(shape, eps=1e-20, tens_type=torch.FloatTensor):

@@ -239,7 +239,7 @@ class MADDPG(object):
                 all_actor_logits.append(pi(ob))
 
                 if True:
-                    dist_ob = swap_obs_agents(ob)
+                    [dist_ob] = swap_obs_agents([ob])
                 else:
                     dist_ob = ob
 
@@ -253,6 +253,9 @@ class MADDPG(object):
             for p, crit in enumerate(self.critics):
                 vf_in = torch.cat((*obs, *acs), dim=1)
                 
+                if True:
+                    obs = swap_obs_agents(obs)
+
                 dist_vf_in = list(zip(obs, acs))
                 np.random.shuffle(dist_vf_in)
                 dist_obs, dist_acs = zip(*dist_vf_in) 
