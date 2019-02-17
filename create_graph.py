@@ -9,11 +9,11 @@ params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
 ENV = "simple_spread_flip_4"
-BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/training_set_size_2/"
 FIGURE_NAME = "figures/2_agent/flip_without_prior.png"
 
 CONV_SIZE = 50
-NUM_SEEDS = 10
+NUM_SEEDS = 3
 
 SHOW = True
 SAVE = False
@@ -142,7 +142,7 @@ if __name__ == "__main__":
 
     plt.xlabel(r'\textbf{Train Episode}', size=14)
     plt.ylabel(r'\textbf{Training Reward}', size=14)
-    plt.title(r'\textbf{2-Agent Distillation (Flip at Episode 2000)}', size=15)
+    plt.title(r'\textbf{4-Agent Distillation (Training Set Size 2)}', size=15)
 
     plt.legend()
 
