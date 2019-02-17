@@ -8,7 +8,7 @@ from utils.heatmap3 import heatmap3
 from utils.heatmap4 import heatmap4
 from utils.buffer import ReplayBuffer
 
-plots = [0, 200, 400, 600, 800, 1000]
+plots = [14001, 16001]
 names = ["before_distillation"]
 
 def run(config):
@@ -16,7 +16,7 @@ def run(config):
     # for i in plots:
     for name in names:
         try:
-            # model_file = str(model_dir / "models" / "model{}.pt".format(i))
+            # model_file = str(model_dir / "incremental" / "model_ep{}.pt".format(i))
             # model_file = str(model_dir / "models" / "{}.pt".format(name))
             model_file = str(model_dir / "model.pt")
 
@@ -35,7 +35,7 @@ def run(config):
             print("Distilling")
             with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
                 replay_buffer = pickle.load(input)
-            maddpg.distill(4096, 1024, replay_buffer, hard=True)
+            maddpg.distill(4096*4, 1024, replay_buffer, hard=True)
 
             print("Creating distilled heatmap")
             heatmap_fn(maddpg, title="{} Agent Policies After Distillation".format(nagents), save=config.save)

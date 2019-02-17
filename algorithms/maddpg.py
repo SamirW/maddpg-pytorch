@@ -244,12 +244,19 @@ class MADDPG(object):
             # ensure distilled critic knows what to do in both situations
             all_critic_logits = []
             distilled_critic_logits = []
+            order = [2,1,3,0]
             for p, crit in enumerate(self.critics):
                 vf_in = torch.cat((*obs, *acs), dim=1)
                 
-                dist_vf_in = list(zip(obs, acs))
-                np.random.shuffle(dist_vf_in)
-                dist_obs, dist_acs = zip(*dist_vf_in) 
+                # dist_vf_in = list(zip(obs, acs))
+                # np.random.shuffle(dist_vf_in)
+                # dist_obs, dist_acs = zip(*dist_vf_in)
+                if np.random.random() < 0.5:
+                    dist_obs = [obs[i] for i in order] 
+                    dist_acs = [acs[i] for i in order]
+                else:
+                    dist_obs = obs 
+                    dist_acs = acs 
 
                 vf_in_distilled = torch.cat((*dist_obs, *dist_acs), dim=1)
                 all_critic_logits.append(crit(vf_in))
