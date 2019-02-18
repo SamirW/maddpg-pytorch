@@ -151,7 +151,7 @@ def run(config):
             maddpg.save(str(run_dir / 'models/before_distillation.pt'.format(ep_i)))
 
             maddpg.prep_rollouts(device='cpu')
-            maddpg.distill(512, 1024, replay_buffer, hard=True, pass_actor=config.distill_pass_actor, pass_critic=config.distill_pass_critic)
+            maddpg.distill(2048, 1024, replay_buffer, hard=True, pass_actor=config.distill_pass_actor, pass_critic=config.distill_pass_critic)
 
             maddpg.save(str(run_dir / 'models/after_distillation.pt'.format(ep_i)))
 
