@@ -27,6 +27,8 @@ def get_observations(agent_poses):
             if i == j: continue
             comm.append(np.array([0, 0]))
             other_pos.append(agent_pos_2 - agent_pos)
+        entity_pos = sorted(entity_pos, key=lambda pos: np.arctan2(pos[1], pos[0]))
+        other_pos = sorted(other_pos, key=lambda pos: np.arctan2(pos[1], pos[0]))
         obs_n.append(np.concatenate([np.array([0, 0])] + [agent_pos] + entity_pos + other_pos + comm))
 
     return np.array([obs_n])

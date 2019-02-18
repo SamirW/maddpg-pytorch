@@ -7,9 +7,9 @@ from pathlib import Path
 from torch.autograd import Variable
 from utils.misc import onehot_from_logits
 
-lndmrk_poses = np.array([[-0.75, -0.75], [0.75, 0.75]])  # Target 0, Target 1
-default_agent_poses = np.array([[-0.33, -0.33], [0.33, 0.33]])  # Blue, Red 
-flipped_agent_poses = np.array([[0.33, 0.33], [-0.33, -0.33]])  # Blue, Red
+lndmrk_poses = [[-0.75, -0.75], [0.75, 0.75]] # Target 0, Target 1
+default_agent_poses = [[-0.33, -0.33], [0.33, 0.33]] # Blue, Red 
+flipped_agent_poses = [[0.33, 0.33], [-0.33, -0.33]] # Blue, Red
 color = {0: 'b', 1: 'r'}
 num_arrows = 21
 
@@ -26,6 +26,9 @@ def get_observations(agent_poses):
             if i == j: continue
             comm.append(np.array([0, 0]))
             other_pos.append(agent_pos_2 - agent_pos)
+        # sort by angle
+        entity_pos = sorted(entity_pos, key=lambda x: np.arctan2(x[1], x[0]))
+        other_pos = sorted(other_pos, key=lambda x: np.arctan2(x[1], x[0]))
         obs_n.append(np.concatenate([np.array([0, 0])] + [agent_pos] + entity_pos + other_pos + comm))
 
     return np.array([obs_n])

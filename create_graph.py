@@ -8,7 +8,7 @@ plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
-ENV = "simple_spread_flip_4"
+ENV = "simple_spread_flip"
 BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph/"
 FIGURE_NAME = "figures/2_agent/flip_without_prior.png"
 
