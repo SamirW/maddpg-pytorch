@@ -34,7 +34,7 @@ if __name__ == "__main__":
     no_distill_data = []
     no_distill_data_ep = []
 
-    for i in range(3,NUM_SEEDS):
+    for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
             "env::{}_seed::{}_comment::no_distill_log".format(ENV, i+1)
@@ -58,7 +58,7 @@ if __name__ == "__main__":
     distill_data = []
     distill_data_ep = []
 
-    for i in range(3,NUM_SEEDS):
+    for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
             "env::{}_seed::{}_comment::distill_log".format(ENV, i+1)
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     distill_pass_actor = []
     distill_pass_actor_ep = []
 
-    for i in range(3,NUM_SEEDS):
+    for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
             "env::{}_seed::{}_comment::distill_pass_actor_log".format(ENV, i+1)
@@ -106,7 +106,7 @@ if __name__ == "__main__":
     distill_pass_critic = []
     distill_pass_critic_ep = []
 
-    for i in range(3,NUM_SEEDS):
+    for i in range(NUM_SEEDS):
         path = \
             BASE_DIR + \
             "env::{}_seed::{}_comment::distill_pass_critic_log".format(ENV, i+1)
