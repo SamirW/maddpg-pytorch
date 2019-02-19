@@ -9,7 +9,7 @@ from utils.misc import onehot_from_logits
 
 lndmrk_poses = np.array([[0.75, 0.75], [-0.75, 0.75], [-0.75, -0.75], [0.75, -0.75]])
 default_agent_poses = [[0.5, 0.5], [-0.5, 0.5], [-0.5, -0.5], [0.5, -0.5]]
-flipped_order = [1,3,2,0]
+flipped_order = [3,0,1,2]
 flipped_agent_poses = [default_agent_poses[i] for i in flipped_order]
 color = {0: 'b', 1: 'r', 2: 'g', 3: [0.65, 0.65, 0.65]}
 num_arrows = 21

@@ -8,9 +8,11 @@ plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
-ENV = "simple_spread_flip_4"
+ENV = "simple_spread_flip_3"
 BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph_relative/"
-FIGURE_NAME = "figures/2_agent/flip_without_prior.png"
+FIGURE_TITLE = "3-Agent Distillation (Relative Obs)"
+FIGURE_DIR = "figures/relative_obs/"
+FIGURE_SAVE_NAME = ""
 
 CONV_SIZE = 50
 NUM_SEEDS = 11
@@ -129,9 +131,12 @@ if __name__ == "__main__":
     """
     fig, ax = plt.subplots()
     sns.set_style("ticks")
-
     for i_data, data in enumerate(datas):
         x = datas_x[i_data][0]
+
+        x = x[:18000]
+        data = [d[:18000] for d in data]
+
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0)
         error = (mean - 0.5*std, mean + 0.5*std)
@@ -142,12 +147,12 @@ if __name__ == "__main__":
 
     plt.xlabel(r'\textbf{Train Episode}', size=14)
     plt.ylabel(r'\textbf{Training Reward}', size=14)
-    plt.title(r'\textbf{4-Agent Distillation (Relative Obs)}', size=15)
+    plt.title(FIGURE_TITLE, size=15)
 
     plt.legend()
 
     if SAVE:
-        plt.savefig(FIGURE_NAME, bbox_inches="tight", dpi=600) 
+        plt.savefig(FIGURE_DIR + FIGURE_SAVE_NAME, bbox_inches="tight", dpi=600) 
 
     if SHOW:
         plt.show()
