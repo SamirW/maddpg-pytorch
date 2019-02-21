@@ -13,10 +13,12 @@ from utils.agents import DDPGAgent
 MSELoss = torch.nn.MSELoss()
 KLLoss = torch.nn.KLDivLoss(size_average=False, reduce=False)
 
+
 class MADDPG(object):
     """
     Wrapper class for DDPG-esque (i.e. also MADDPG) agents in multi-agent task
     """
+
     def __init__(self, agent_init_params, alg_types,
                  gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64,
                  discrete_action=False):
@@ -42,8 +44,8 @@ class MADDPG(object):
                                  **params)
                        for params in agent_init_params]
         self.distilled_agent = DDPGAgent(lr=lr, discrete_action=discrete_action,
-                                 hidden_dim=hidden_dim,
-                                 **agent_init_params[0])
+                                         hidden_dim=hidden_dim,
+                                         **agent_init_params[0])
         self.agent_init_params = agent_init_params
         self.gamma = gamma
         self.tau = tau
@@ -66,7 +68,6 @@ class MADDPG(object):
     @property
     def critics(self):
         return [a.critic for a in self.agents]
-    
 
     def scale_noise(self, scale):
         """
@@ -91,7 +92,7 @@ class MADDPG(object):
             actions: List of actions for each agent
         """
         return [a.step(obs, explore=explore) for a, obs in zip(self.agents,
-                                                                 observations)]
+                                                               observations)]
 
     def action_logits(self, observations):
         """
@@ -102,13 +103,13 @@ class MADDPG(object):
             logits: logits of action policy for each agent
         """
         return [a.action_logits(obs) for a, obs in zip(self.agents,
-                                                        observations)]
+                                                       observations)]
 
     def get_critic_vals(self, obs, act):
-        obs = [o.repeat(2,1) for o in obs]
-        act = [a.repeat(2,1) for a in act]
+        obs = [o.repeat(2, 1) for o in obs]
+        act = [a.repeat(2, 1) for a in act]
         vf_in = torch.cat((*obs, *act), dim=1)
-        return [a.critic(vf_in) for a in self.agents]  
+        return [a.critic(vf_in) for a in self.agents]
 
     def update(self, sample, agent_i, parallel=False, logger=None, skip_actor=False):
         """
@@ -128,7 +129,7 @@ class MADDPG(object):
 
         curr_agent.critic_optimizer.zero_grad()
         if self.alg_types[agent_i] == 'MADDPG':
-            if self.discrete_action: # one-hot encode action
+            if self.discrete_action:  # one-hot encode action
                 all_trgt_acs = [onehot_from_logits(pi(nobs)) for pi, nobs in
                                 zip(self.target_policies, next_obs)]
             else:
@@ -173,7 +174,8 @@ class MADDPG(object):
                 # Gumbel-Softmax sample. The MADDPG paper uses the Gumbel-Softmax trick to backprop
                 # through discrete categorical samples, but I'm not sure if that is
                 # correct since it removes the assumption of a deterministic policy for
-                # DDPG. Regardless, discrete policies don't seem to learn properly without it.
+                # DDPG. Regardless, discrete policies don't seem to learn
+                # properly without it.
                 curr_pol_out = curr_agent.policy(obs[agent_i])
                 curr_pol_vf_in = gumbel_softmax(curr_pol_out, hard=True)
             else:
@@ -220,7 +222,7 @@ class MADDPG(object):
             soft_update(a.target_policy, a.policy, self.tau)
         self.niter += 1
 
-    def distill(self, num_distill, batch_size, replay_buffer, hard=False, pass_actor=False, pass_critic = False, temperature=0.01, tau=0.01):
+    def distill(self, num_distill, batch_size, replay_buffer, hard=False, pass_actor=False, pass_critic=False, temperature=0.01, tau=0.01):
         replay_buffer.prepare_weights()
 
         if pass_actor and pass_critic:
@@ -240,20 +242,20 @@ class MADDPG(object):
                 distilled_actor_logits.append(self.distilled_agent.policy(ob))
 
             # Find critic outputs for each agent + distilled
-            # Reverse distilled vf_input about 50% of the time to
-            # ensure distilled critic knows what to do in both situations
+            # Mix input to critic by shuffling
             all_critic_logits = []
             distilled_critic_logits = []
             for p, crit in enumerate(self.critics):
                 vf_in = torch.cat((*obs, *acs), dim=1)
-                
+
                 dist_vf_in = list(zip(obs, acs))
                 np.random.shuffle(dist_vf_in)
-                dist_obs, dist_acs = zip(*dist_vf_in) 
+                dist_obs, dist_acs = zip(*dist_vf_in)
 
                 vf_in_distilled = torch.cat((*dist_obs, *dist_acs), dim=1)
                 all_critic_logits.append(crit(vf_in))
-                distilled_critic_logits.append(self.distilled_agent.critic(vf_in_distilled))
+                distilled_critic_logits.append(
+                    self.distilled_agent.critic(vf_in_distilled))
 
             for j, agent in enumerate(self.agents):
 
@@ -263,17 +265,13 @@ class MADDPG(object):
 
                     with torch.no_grad():
                         target = F.softmax(all_actor_logits[j], dim=1)
-                        # entropy = Categorical(probs=target).entropy()
-                        # weight = (1-entropy/agent.max_entropy)
-                        # weight = replay_buffer.KDE(j, obs[j].data.numpy())
                     student = F.log_softmax(distilled_actor_logits[j], dim=1)
                     loss = KLLoss(student, target) / batch_size
-                    # loss = loss.sum(dim=1)
-                    # loss = loss * weight
                     loss = loss.sum()
                     loss.backward()
 
-                    torch.nn.utils.clip_grad_norm_(self.distilled_agent.policy.parameters(), 0.5)
+                    torch.nn.utils.clip_grad_norm_(
+                        self.distilled_agent.policy.parameters(), 0.5)
                     self.distilled_agent.policy_optimizer.step()
 
                 if not pass_critic:
@@ -285,18 +283,21 @@ class MADDPG(object):
                     loss = MSELoss(student, target)
                     loss.backward()
 
-                    torch.nn.utils.clip_grad_norm_(self.distilled_agent.critic.parameters(), 0.5)
+                    torch.nn.utils.clip_grad_norm_(
+                        self.distilled_agent.critic.parameters(), 0.5)
                     self.distilled_agent.critic_optimizer.step()
 
         # Update student parameters
         for a in self.agents:
-            if hard: 
+            if hard:
                 if not pass_actor:
-                    a.policy.load_state_dict(self.distilled_agent.policy.state_dict())
+                    a.policy.load_state_dict(
+                        self.distilled_agent.policy.state_dict())
                     a.target_policy.load_state_dict(a.policy.state_dict())
 
                 if not pass_critic:
-                    a.critic.load_state_dict(self.distilled_agent.critic.state_dict())
+                    a.critic.load_state_dict(
+                        self.distilled_agent.critic.state_dict())
                     a.target_critic.load_state_dict(a.critic.state_dict())
 
     def prep_training(self, device='gpu'):
@@ -326,12 +327,14 @@ class MADDPG(object):
         if not self.trgt_pol_dev == device:
             for a in self.agents:
                 a.target_policy = fn(a.target_policy)
-            self.distilled_agent.target_policy = fn(self.distilled_agent.target_policy)
+            self.distilled_agent.target_policy = fn(
+                self.distilled_agent.target_policy)
             self.trgt_pol_dev = device
         if not self.trgt_critic_dev == device:
             for a in self.agents:
                 a.target_critic = fn(a.target_critic)
-            self.distilled_agent.target_critic = fn(self.distilled_agent.target_critic)
+            self.distilled_agent.target_critic = fn(
+                self.distilled_agent.target_critic)
             self.trgt_critic_dev = device
 
     def prep_rollouts(self, device='cpu'):
@@ -353,7 +356,8 @@ class MADDPG(object):
         """
         Save trained parameters of all agents into one file
         """
-        self.prep_training(device='cpu')  # move parameters to CPU before saving
+        self.prep_training(
+            device='cpu')  # move parameters to CPU before saving
         save_dict = {'init_dict': self.init_dict,
                      'agent_params': [a.get_params() for a in self.agents]}
         torch.save(save_dict, filename)

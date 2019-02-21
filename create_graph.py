@@ -9,7 +9,8 @@ params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
 ENV = "simple_spread_flip_4"
-BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph_relative/"
+RUN = "eval_graph_relative"
+BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/" + RUN "/"
 FIGURE_TITLE = "4-Agent Distillation (Relative Obs)"
 FIGURE_DIR = "figures/relative_obs/"
 FIGURE_SAVE_NAME = ""
