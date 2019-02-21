@@ -1,7 +1,7 @@
 #!/bin/bash
 seed=1
 
-python main.py simple_spread_flip_4 heatmap_relative --seed $seed --n_episodes 8000 --log_comment "heatmap_data" --save_buffer
+python main.py simple_spread_flip_3 eval_graph_relative --seed $seed --n_episodes 15000 --flip_ep 3000 --hard_distill_ep 3000 --eval_ep 3000 --log_comment "distill_eval"
 
 # while [ $seed -le 3 ];
 # do
