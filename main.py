@@ -18,7 +18,7 @@ USE_CUDA = False  # torch.cuda.is_available()
 def make_parallel_env(env_id, n_rollout_threads, seed, discrete_action):
     def get_env_fn(rank):
         def init_env():
-            env = make_env(env_id, discrete_action=discrete_action)
+            env = make_env(env_id, discrete_action=discrete_action, mode=0)
             env.seed(seed + rank * 1000)
             np.random.seed(seed + rank * 1000)
             return env
@@ -108,7 +108,7 @@ def run(config):
                 dones = dones + 1
 
             if (ep_i+1) % config.display_every == 0:
-                time.sleep(0.01)
+                time.sleep(0.02)
                 env.render()
 
             replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)

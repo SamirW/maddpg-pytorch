@@ -1,7 +1,7 @@
 #!/bin/bash
 seed=1
 
-python main.py simple_spread_flip_3 eval_graph_relative --seed $seed --n_episodes 15000 --flip_ep 3000 --hard_distill_ep 3000 --eval_ep 3000 --log_comment "distill_eval"
+python main.py complex_push test --episode_length 100 --seed $seed --init_noise_scale 0.9 --n_episodes 10000 --log_comment "test" --display_every 50
 
 # while [ $seed -le 3 ];
 # do
