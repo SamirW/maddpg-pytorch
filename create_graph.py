@@ -8,13 +8,13 @@ plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
-ENV = "simple_spread_flip_4"
+ENV = "simple_spread_hard"
 BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/eval_graph_relative/"
-FIGURE_TITLE = "4-Agent Distillation (Relative Obs)"
+FIGURE_TITLE = "3-Agent Distillation (Hard Environment)"
 FIGURE_DIR = "figures/relative_obs/"
 FIGURE_SAVE_NAME = ""
 
-CONV_SIZE = 50
+CONV_SIZE = 150
 NUM_SEEDS = 11
 
 SHOW = True
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     """
         no_distill
     """
-    if False:
+    if True:
         no_distill_data = []
         no_distill_data_ep = []
 
@@ -54,7 +54,30 @@ if __name__ == "__main__":
         datas.append(no_distill_data)  
         datas_x.append(no_distill_data_ep)
         legends.append(r'No Distillation')
+    """
+        No Distill Eval
+    """
+    if True: 
+        no_distill_eval = []
+        no_distill_eval_ep = []
 
+        for i in range(NUM_SEEDS):
+            path = \
+                BASE_DIR + \
+                "env::{}_seed::{}_comment::no_distill_eval_log".format(ENV, i+1)
+        
+            try:
+                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+
+                no_distill_eval.append(data)
+                no_distill_eval_ep.append(data_x)
+            except:
+                continue
+
+        datas.append(no_distill_eval)
+        datas_x.append(no_distill_eval_ep)
+        legends.append(r'No Distillation and Eval')
     """
         Distilled
     """
@@ -95,14 +118,14 @@ if __name__ == "__main__":
                 data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
                 data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
-                distill_eval.append(data[:10000])
-                distill_eval_ep.append(data_x[:10000])
+                distill_eval.append(data)
+                distill_eval_ep.append(data_x)
             except:
                 continue
 
         datas.append(distill_eval)
         datas_x.append(distill_eval_ep)
-        legends.append(r'Distill All')
+        legends.append(r'Distill and Eval')
 
     """
         Distill Pass Actor
@@ -162,12 +185,12 @@ if __name__ == "__main__":
     for i_data, data in enumerate(datas):
         x = datas_x[i_data][0]
 
-        x = x[:18000]
-        data = [d[:18000] for d in data]
+        # x = x[:18000]
+        # data = [d[:18000] for d in data]
 
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0)
-        error = (mean - 0.5*std, mean + 0.5*std)
+        error = (mean - std, mean + std)
 
         ax.fill_between(x, error[0], error[1], alpha=0.2)
         ax.plot(x, mean, label=legends[i_data])
