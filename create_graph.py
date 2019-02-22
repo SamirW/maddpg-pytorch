@@ -14,7 +14,7 @@ FIGURE_TITLE = "3-Agent Distillation (Hard Environment)"
 FIGURE_DIR = "figures/relative_obs/"
 FIGURE_SAVE_NAME = ""
 
-CONV_SIZE = 150
+CONV_SIZE = 250
 NUM_SEEDS = 11
 
 SHOW = True
@@ -29,6 +29,55 @@ if __name__ == "__main__":
     datas = []
     datas_x = []
     legends = []
+
+    """
+        No Distill Eval
+    """
+    if False: 
+        no_distill_eval = []
+        no_distill_eval_ep = []
+
+        for i in range(NUM_SEEDS):
+            path = \
+                BASE_DIR + \
+                "env::{}_seed::{}_comment::no_distill_eval_log".format(ENV, i+1)
+        
+            try:
+                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+
+                no_distill_eval.append(data)
+                no_distill_eval_ep.append(data_x)
+            except:
+                continue
+
+        datas.append(no_distill_eval)
+        datas_x.append(no_distill_eval_ep)
+        legends.append(r'No Distillation and Eval')
+    """
+        Distill Eval
+    """
+    if False: 
+        distill_eval = []
+        distill_eval_ep = []
+
+        for i in range(NUM_SEEDS):
+            path = \
+                BASE_DIR + \
+                "env::{}_seed::{}_comment::distill_eval_log".format(ENV, i+1)
+        
+            try:
+                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+
+                distill_eval.append(data)
+                distill_eval_ep.append(data_x)
+            except:
+                continue
+
+        datas.append(distill_eval)
+        datas_x.append(distill_eval_ep)
+        legends.append(r'Distill and Eval')
 
     """
         no_distill
@@ -55,29 +104,55 @@ if __name__ == "__main__":
         datas_x.append(no_distill_data_ep)
         legends.append(r'No Distillation')
     """
-        No Distill Eval
+        Distill Pass Actor
     """
-    if True: 
-        no_distill_eval = []
-        no_distill_eval_ep = []
+    if True:
+        distill_pass_actor = []
+        distill_pass_actor_ep = []
 
         for i in range(NUM_SEEDS):
             path = \
                 BASE_DIR + \
-                "env::{}_seed::{}_comment::no_distill_eval_log".format(ENV, i+1)
+                "env::{}_seed::{}_comment::distill_pass_actor_log".format(ENV, i+1)
         
             try:
                 data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
                 data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
-                no_distill_eval.append(data)
-                no_distill_eval_ep.append(data_x)
+                distill_pass_actor.append(data)
+                distill_pass_actor_ep.append(data_x)
             except:
                 continue
 
-        datas.append(no_distill_eval)
-        datas_x.append(no_distill_eval_ep)
-        legends.append(r'No Distillation and Eval')
+        datas.append(distill_pass_actor)
+        datas_x.append(distill_pass_actor_ep)
+        legends.append(r'Critic-Only Distill')
+
+    """
+        Pass critic
+    """
+    if True:
+        distill_pass_critic = []
+        distill_pass_critic_ep = []
+
+        for i in range(NUM_SEEDS):
+            path = \
+                BASE_DIR + \
+                "env::{}_seed::{}_comment::distill_pass_critic_log".format(ENV, i+1)
+        
+            try:
+                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+
+                distill_pass_critic.append(data)
+                distill_pass_critic_ep.append(data_x)
+            except:
+                continue
+
+        datas.append(distill_pass_critic)
+        datas_x.append(distill_pass_critic_ep)
+        legends.append(r'Actor-Only Distill')
+
     """
         Distilled
     """
@@ -102,81 +177,6 @@ if __name__ == "__main__":
         datas.append(distill_data)
         datas_x.append(distill_data_ep)
         legends.append(r'Distill All')
-    """
-        Distill Eval
-    """
-    if True: 
-        distill_eval = []
-        distill_eval_ep = []
-
-        for i in range(NUM_SEEDS):
-            path = \
-                BASE_DIR + \
-                "env::{}_seed::{}_comment::distill_eval_log".format(ENV, i+1)
-        
-            try:
-                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
-                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
-
-                distill_eval.append(data)
-                distill_eval_ep.append(data_x)
-            except:
-                continue
-
-        datas.append(distill_eval)
-        datas_x.append(distill_eval_ep)
-        legends.append(r'Distill and Eval')
-
-    """
-        Distill Pass Actor
-    """
-    if False:
-        distill_pass_actor = []
-        distill_pass_actor_ep = []
-
-        for i in range(NUM_SEEDS):
-            path = \
-                BASE_DIR + \
-                "env::{}_seed::{}_comment::distill_pass_actor_log".format(ENV, i+1)
-        
-            try:
-                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
-                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
-
-                distill_pass_actor.append(data)
-                distill_pass_actor_ep.append(data_x)
-            except:
-                continue
-
-        datas.append(distill_pass_actor)
-        datas_x.append(distill_pass_actor_ep)
-        legends.append(r'Critic-Only Distill')
-
-    """
-        Separate ER Distillation
-    """
-    if False:
-        distill_pass_critic = []
-        distill_pass_critic_ep = []
-
-        for i in range(NUM_SEEDS):
-            path = \
-                BASE_DIR + \
-                "env::{}_seed::{}_comment::distill_pass_critic_log".format(ENV, i+1)
-        
-            try:
-                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
-                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
-
-                distill_pass_critic.append(data)
-                distill_pass_critic_ep.append(data_x)
-            except:
-                continue
-
-        datas.append(distill_pass_critic)
-        datas_x.append(distill_pass_critic_ep)
-        legends.append(r'Actor-Only Distill')
-
     """
         Plot data
     """
