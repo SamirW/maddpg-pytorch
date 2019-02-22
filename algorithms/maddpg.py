@@ -1,4 +1,3 @@
-import copy
 import torch
 import torch.nn.functional as F
 import numpy as np
@@ -222,7 +221,8 @@ class MADDPG(object):
             soft_update(a.target_policy, a.policy, self.tau)
         self.niter += 1
 
-    def distill(self, num_distill, batch_size, replay_buffer, hard=False, pass_actor=False, pass_critic=False, temperature=0.01, tau=0.01):
+    def distill(self, num_distill, batch_size, replay_buffer, hard=False, 
+                pass_actor=False, pass_critic=False, temperature=0.01, tau=0.01):
         replay_buffer.prepare_weights()
 
         if pass_actor and pass_critic:
@@ -403,12 +403,36 @@ class MADDPG(object):
 
     @classmethod
     def init_from_save(cls, filename):
-        """
-        Instantiate instance of this class from file created by 'save' method
-        """
+        print("[ INFO ] Loaded model from savepoint")
         save_dict = torch.load(filename)
         instance = cls(**save_dict['init_dict'])
         instance.init_dict = save_dict['init_dict']
         for a, params in zip(instance.agents, save_dict['agent_params']):
             a.load_params(params)
+        return instance
+
+    @classmethod
+    def init_from_save(cls, filename1, filename2):
+        print("[ INFO ] Loaded two models from savepoint")
+
+        save_dict1 = torch.load(filename1)
+        save_dict2 = torch.load(filename2)
+
+        instance = cls(**save_dict1['init_dict'])
+        instance.init_dict = save_dict1['init_dict']
+
+        # Load agent 1 from save dict1
+        counter = 0
+        for a, params in zip(instance.agents, save_dict1['agent_params']):
+            if counter == 0:
+                a.load_params(params)
+            counter += 1
+
+        # Load agent 2 from save dict2
+        counter = 0
+        for a, params in zip(instance.agents, save_dict2['agent_params']):
+            if counter == 1:
+                a.load_params(params)
+            counter += 1
+
         return instance

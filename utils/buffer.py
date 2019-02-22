@@ -1,7 +1,9 @@
+import copy
 import numpy as np
 from torch import Tensor
 from torch.autograd import Variable
 from scipy.spatial.distance import pdist, squareform
+
 
 class ReplayBuffer(object):
     """
@@ -39,7 +41,6 @@ class ReplayBuffer(object):
 
     def __len__(self):
         return self.filled_i
-
 
     def reset(self):
         for i in range(len(self.obs_buffs)):
@@ -85,12 +86,13 @@ class ReplayBuffer(object):
             self.curr_i = 0
 
     def sample(self, N, to_gpu=False, norm_rews=True):
-        inds = np.random.choice(np.arange(self.filled_i), size=N,
-                                replace=False)
+        inds = np.random.choice(np.arange(self.filled_i), size=N, replace=False)
+
         if to_gpu:
             cast = lambda x: Variable(Tensor(x), requires_grad=False).cuda()
         else:
             cast = lambda x: Variable(Tensor(x), requires_grad=False)
+
         if norm_rews:
             ret_rews = [cast((self.rew_buffs[i][inds] -
                               self.rew_buffs[i][:self.filled_i].mean()) /
@@ -130,3 +132,29 @@ class ReplayBuffer(object):
 
         kernels = np.exp(-1*dists_sq / h**2 / 2)
         return Tensor(np.mean(kernels, axis=1))
+
+    def combine_two_memory(self, memory1, memory2):
+        print("[ INFO ] Combining two memories ...")
+
+        # Observation
+        self.obs_buffs[0] = np.copy(memory1.obs_buffs[0])
+        self.obs_buffs[1] = np.copy(memory2.obs_buffs[0])
+
+        # action
+        self.ac_buffs[0] = np.copy(memory1.ac_buffs[0])
+        self.ac_buffs[1] = np.copy(memory2.ac_buffs[0])
+
+        # reward
+        self.rew_buffs[0] = np.copy(memory1.rew_buffs[0])
+        self.rew_buffs[1] = np.copy(memory2.rew_buffs[0])
+
+        # Next obs
+        self.next_obs_buffs[0] = np.copy(memory1.next_obs_buffs[0])
+        self.next_obs_buffs[1] = np.copy(memory2.next_obs_buffs[0])
+
+        # Done
+        self.done_buffs[0] = np.copy(memory1.done_buffs[0])
+        self.done_buffs[1] = np.copy(memory2.done_buffs[0])
+
+        # Misc
+        self.filled_i = len(self.next_obs_buffs[0])
