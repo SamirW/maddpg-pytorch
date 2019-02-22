@@ -1,9 +1,8 @@
 import argparse
 import torch
-import time
 import os
 import numpy as np
-from gym.spaces import Box, Discrete
+from gym.spaces import Box
 from pathlib import Path
 from torch.autograd import Variable
 from tensorboardX import SummaryWriter
@@ -16,10 +15,10 @@ from algorithms.maddpg import MADDPG
 USE_CUDA = False  # torch.cuda.is_available()
 
 
-def make_parallel_env(env_id, n_rollout_threads, seed, discrete_action):
+def make_parallel_env(env_id, n_rollout_threads, seed):
     def get_env_fn(rank):
         def init_env():
-            env = make_env(env_id, discrete_action=discrete_action)
+            env = make_env(env_id)
             env.seed(seed + rank * 1000)
             np.random.seed(seed + rank * 1000)
             return env
@@ -52,8 +51,7 @@ def run(config):
     np.random.seed(config.seed)
     if not USE_CUDA:
         torch.set_num_threads(config.n_training_threads)
-    env = make_parallel_env(config.env_id, config.n_rollout_threads, config.seed,
-                            config.discrete_action)
+    env = make_parallel_env(config.env_id, config.n_rollout_threads, config.seed)
     maddpg = MADDPG.init_from_env(env, agent_alg=config.agent_alg,
                                   adversary_alg=config.adversary_alg,
                                   tau=config.tau,
@@ -65,65 +63,49 @@ def run(config):
                                  [acsp.shape[0] if isinstance(acsp, Box) else acsp.n
                                   for acsp in env.action_space])
     t = 0
-    flip = False
 
     print("********Starting training********")
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
-
-        # Flip environment
-        if ep_i == config.flip_ep:
-            print("********Flipping********")
-            # Reset replay buffer
-            replay_buffer = ReplayBuffer(config.buffer_length, maddpg.nagents,
-                                         [obsp.shape[0]
-                                             for obsp in env.observation_space],
-                                         [acsp.shape[0] if isinstance(acsp, Box) else acsp.n
-                                             for acsp in env.action_space])
-            flip = True
-
-        obs = env.reset(flip=flip)
+        obs = env.reset()
         maddpg.prep_rollouts(device='cpu')
+        ep_rew = 0.
 
-        if ep_i >= config.flip_ep:
-            # Restart exploration after flip
-            explr_pct_remaining = max(
-                0, 2 * (config.n_exploration_eps - (ep_i - config.flip_ep))) / config.n_exploration_eps
-        else:
-            # Explore
-            explr_pct_remaining = max(
-                0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
-        maddpg.scale_noise(config.final_noise_scale + (config.init_noise_scale -
-                                                       config.final_noise_scale) * explr_pct_remaining)
+        # Reset noise
+        explr_pct_remaining = max(
+            0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
+        noise = config.final_noise_scale + (config.init_noise_scale - config.final_noise_scale) * explr_pct_remaining
+        maddpg.scale_noise(noise)
         maddpg.reset_noise()
 
         for et_i in range(config.episode_length):
+            if ep_i % 200 == 0:
+                env.render()
 
-            # rearrange observations to be per agent, and convert to torch
-            # Variable
-            torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
-                                  requires_grad=False)
-                         for i in range(maddpg.nagents)]
+            # rearrange observations to be per agent, and convert to torch variable
+            torch_obs = [
+                Variable(torch.Tensor(np.vstack(obs[:, i])), requires_grad=False)
+                for i in range(maddpg.nagents)]
 
-            # get actions as torch Variables
+            # get actions
             torch_agent_actions = maddpg.step(torch_obs, explore=True)
-            # convert actions to numpy arrays
             agent_actions = [ac.data.numpy() for ac in torch_agent_actions]
-            # rearrange actions to be per environment
             actions = [[ac[i] for ac in agent_actions]
                        for i in range(config.n_rollout_threads)]
+
+            # Take action
             next_obs, rewards, dones, infos = env.step(actions)
             if et_i == (config.episode_length - 1):
                 dones = dones + 1
 
-            if (ep_i + 1) % config.display_every == 0:
-                time.sleep(0.01)
-                env.render()
-
             replay_buffer.push(obs, agent_actions, rewards, next_obs, dones)
+
+            # For next timestep
             obs = next_obs
             t += config.n_rollout_threads
+            ep_rew += rewards[0][0]
 
-            if ep_i < config.eval_ep: # do not update after evaluation phase starts
+            # Update policy
+            if ep_i < config.eval_ep:  # do not update after evaluation phase starts
                 if len(replay_buffer) >= config.batch_size:
                     if (t % config.steps_per_update) < config.n_rollout_threads:
                         if USE_CUDA:
@@ -133,59 +115,57 @@ def run(config):
                         for u_i in range(config.n_rollout_threads):
                             for a_i in range(maddpg.nagents):
                                 sample = replay_buffer.sample(config.batch_size,
-                                                              to_gpu=USE_CUDA)
+                                                              to_gpu=USE_CUDA, norm_rews=True)
                                 maddpg.update(sample, a_i, logger=logger)
                             maddpg.update_all_targets()
                         maddpg.prep_rollouts(device='cpu')
-        ep_rews = replay_buffer.get_average_rewards(
-            config.episode_length * config.n_rollout_threads)
-        for a_i, a_ep_rew in enumerate(ep_rews):
-            logger.add_scalar('agent%i/mean_episode_rewards' %
-                              a_i, a_ep_rew, ep_i)
 
-        logger.add_scalar('joint/mean_episode_rewards', np.sum(ep_rews), ep_i)
-        log[config.log_name].info(
-            "Train episode reward {:0.5f} at episode {}".format(np.sum(ep_rews), ep_i))
+        print(ep_i, ep_rew)
+        logger.add_scalar('reward/episode_rewards', ep_rew, ep_i)
+        logger.add_scalar('misc/noise', noise, ep_i)
 
-        if ep_i % config.save_interval < config.n_rollout_threads:
-            os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
-            maddpg.save(str(run_dir / 'incremental' /
-                            ('model_ep%i.pt' % (ep_i + 1))))
-            maddpg.save(str(run_dir / 'model.pt'))
+        # log[config.log_name].info(
+        #     "Train episode reward {:0.5f} at episode {}".format(np.sum(ep_rews), ep_i))
 
-        if (ep_i + 1) == config.hard_distill_ep:
-            print("************Distilling***********")
-            os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
-            maddpg.save(str(run_dir / 'incremental' /
-                            ('before_distillation.pt')))
+        # if ep_i % config.save_interval < config.n_rollout_threads:
+        #     os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
+        #     maddpg.save(str(run_dir / 'incremental' /
+        #                     ('model_ep%i.pt' % (ep_i + 1))))
+        #     maddpg.save(str(run_dir / 'model.pt'))
 
-            maddpg.prep_rollouts(device='cpu')
-            maddpg.distill(config.num_distills, 1024, replay_buffer, hard=True,
-                           pass_actor=config.distill_pass_actor, pass_critic=config.distill_pass_critic)
+        # if (ep_i + 1) == config.hard_distill_ep:
+        #     print("************Distilling***********")
+        #     os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
+        #     maddpg.save(str(run_dir / 'incremental' /
+        #                     ('before_distillation.pt')))
 
-            maddpg.save(str(run_dir / 'incremental' /
-                            ('after_distillation.pt')))
+        #     maddpg.prep_rollouts(device='cpu')
+        #     maddpg.distill(config.num_distills, 1024, replay_buffer, hard=True,
+        #                    pass_actor=config.distill_pass_actor, pass_critic=config.distill_pass_critic)
 
-    # Save experience replay buffer
-    if config.save_buffer:
-        print("*******Saving Replay Buffer******")
-        import pickle
-        with open(str(run_dir / 'replay_buffer.pkl'), 'wb') as output:
-            pickle.dump(replay_buffer, output, -1)
+        #     maddpg.save(str(run_dir / 'incremental' /
+        #                     ('after_distillation.pt')))
 
-    print("********Saving and Closing*******")
-    maddpg.save(str(run_dir / 'model.pt'))
-    env.close()
-    logger.export_scalars_to_json(str(log_dir / 'summary.json'))
-    logger.close()
+    # # Save experience replay buffer
+    # if config.save_buffer:
+    #     print("*******Saving Replay Buffer******")
+    #     import pickle
+    #     with open(str(run_dir / 'replay_buffer.pkl'), 'wb') as output:
+    #         pickle.dump(replay_buffer, output, -1)
+
+    # print("********Saving and Closing*******")
+    # maddpg.save(str(run_dir / 'model.pt'))
+    # env.close()
+    # logger.export_scalars_to_json(str(log_dir / 'summary.json'))
+    # logger.close()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("env_id", help="Name of environment")
-    parser.add_argument("model_name",
-                        help="Name of directory to store " +
-                             "model/training contents")
+    parser.add_argument(
+        "--env_id", help="Name of environment")
+    parser.add_argument(
+        "--model_name", help="Name of directory to store")
     parser.add_argument("--log_comment",
                         default="", type=str,
                         help="Log file comment")
@@ -199,11 +179,12 @@ if __name__ == '__main__':
     parser.add_argument("--n_training_threads", default=6, type=int)
     parser.add_argument("--buffer_length", default=int(1e6), type=int)
     parser.add_argument("--n_episodes", default=2000, type=int)
-    parser.add_argument("--episode_length", default=25, type=int)
+    parser.add_argument(
+        "--episode_length", default=25, type=int)
     parser.add_argument("--steps_per_update", default=100, type=int)
-    parser.add_argument("--batch_size",
-                        default=1024, type=int,
-                        help="Batch size for model training")
+    parser.add_argument(
+        "--batch_size", default=1024, type=int,
+        help="Batch size for model training")
     parser.add_argument("--flip_ep",
                         default=999999, type=int,
                         help="Episode at which to flip")
@@ -224,9 +205,12 @@ if __name__ == '__main__':
                         action="store_true",
                         default=False,
                         help="How long to skip actor updates")
-    parser.add_argument("--n_exploration_eps", default=25000, type=int)
-    parser.add_argument("--init_noise_scale", default=0.3, type=float)
-    parser.add_argument("--final_noise_scale", default=0.0, type=float)
+    parser.add_argument(
+        "--n_exploration_eps", default=25000, type=int)
+    parser.add_argument(
+        "--init_noise_scale", default=0.3, type=float)
+    parser.add_argument(
+        "--final_noise_scale", default=0.0, type=float)
     parser.add_argument("--save_interval", default=1000, type=int)
     parser.add_argument("--hidden_dim", default=64, type=int)
     parser.add_argument("--lr", default=0.01, type=float)
