@@ -1,6 +1,7 @@
 import argparse
 import torch
 import os
+import pickle
 import numpy as np
 from gym.spaces import Box
 from pathlib import Path
@@ -120,38 +121,21 @@ def run(config):
                             maddpg.update_all_targets()
                         maddpg.prep_rollouts(device='cpu')
 
-        print(ep_i, ep_rew)
+        # Log performance
+        log[config.log_name].info(
+            "Train episode reward {:0.5f} at episode {}".format(ep_rew, ep_i))
         logger.add_scalar('reward/episode_rewards', ep_rew, ep_i)
         logger.add_scalar('misc/noise', noise, ep_i)
 
-        # log[config.log_name].info(
-        #     "Train episode reward {:0.5f} at episode {}".format(np.sum(ep_rews), ep_i))
+        # Save maddpg model and replay buffer time to time
+        if ep_i % 10000 == 0:
+            print("*******Saving model and replay Buffer******")
+            os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
+            maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
+            maddpg.save(str(run_dir / 'model.pt'))
 
-        # if ep_i % config.save_interval < config.n_rollout_threads:
-        #     os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
-        #     maddpg.save(str(run_dir / 'incremental' /
-        #                     ('model_ep%i.pt' % (ep_i + 1))))
-        #     maddpg.save(str(run_dir / 'model.pt'))
-
-        # if (ep_i + 1) == config.hard_distill_ep:
-        #     print("************Distilling***********")
-        #     os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
-        #     maddpg.save(str(run_dir / 'incremental' /
-        #                     ('before_distillation.pt')))
-
-        #     maddpg.prep_rollouts(device='cpu')
-        #     maddpg.distill(config.num_distills, 1024, replay_buffer, hard=True,
-        #                    pass_actor=config.distill_pass_actor, pass_critic=config.distill_pass_critic)
-
-        #     maddpg.save(str(run_dir / 'incremental' /
-        #                     ('after_distillation.pt')))
-
-    # # Save experience replay buffer
-    # if config.save_buffer:
-    #     print("*******Saving Replay Buffer******")
-    #     import pickle
-    #     with open(str(run_dir / 'replay_buffer.pkl'), 'wb') as output:
-    #         pickle.dump(replay_buffer, output, -1)
+            with open(str(run_dir / ('replay_buffer' + str(ep_i) + '.pkl')), 'wb') as output:
+                pickle.dump(replay_buffer, output, -1)
 
     # print("********Saving and Closing*******")
     # maddpg.save(str(run_dir / 'model.pt'))
