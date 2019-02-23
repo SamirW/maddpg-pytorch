@@ -7,6 +7,7 @@ from torch import Tensor
 from torch.autograd import Variable
 from gym.spaces import Box, Discrete
 from utils.networks import MLPNetwork
+from utils.kernel import AdaptiveIsotropicGaussianKernel
 from utils.misc import soft_update, hard_update, average_gradients, onehot_from_logits, gumbel_softmax, batch_gumbel_softmax
 from utils.agents import DDPGAgent
 
@@ -221,7 +222,7 @@ class MADDPG(object):
         self.niter += 1
 
     def distill(self, num_distill, batch_size, replay_buffer, hard=False, pass_actor=False, pass_critic = False, temperature=0.01, tau=0.01):
-        replay_buffer.prepare_weights()
+        kernel_class = AdaptiveIsotropicGaussianKernel
 
         if pass_actor and pass_critic:
             return 0
@@ -258,6 +259,25 @@ class MADDPG(object):
             for j, agent in enumerate(self.agents):
 
                 if not pass_actor:
+
+                    kernel_ratio = 0.5
+                    num_states = obs[0].size()[0]
+                    split_point = int(kernel_ratio*num_states)
+
+                    obs_updated = obs[j][:split_point]
+                    obs_fixed = obs[j][split_point:]
+                    kernel = kernel_class(obs_fixed, obs_updated)
+                    
+                    pi = self.policies[j]
+                    p = pi(obs_fixed)
+                    
+                    grad_p = torch.autograd.grad(
+                        p,
+                        obs_fixed,
+                        grad_outputs=torch.ones(p.size()))
+
+                    exit()
+                    
                     # Distill agent
                     self.distilled_agent.policy_optimizer.zero_grad()
 

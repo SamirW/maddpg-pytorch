@@ -19,7 +19,11 @@ def run(config):
             # model_file = str(model_dir / "models" / "model{}.pt".format(i))
             # model_file = str(model_dir / "models" / "{}.pt".format(name))
             model_file = str(model_dir / "model.pt")
-
+            
+            if "continuous" in config.model_name:
+                continuous = True
+            else:
+                continuous = False
             maddpg = MADDPG.init_from_save(model_file)
             nagents = maddpg.nagents
             if nagents == 2:
@@ -29,8 +33,7 @@ def run(config):
             else: # 4 agents
                 heatmap_fn = heatmap4
 
-            print("Creating heatmap")
-            heatmap_fn(maddpg, title="{} Agent Policies Before Distillation".format(nagents), save=config.save)
+            heatmap_fn(maddpg, title="{} Agent Policies Before Distillation".format(nagents), save=config.save, continuous=continuous)
 
             print("Distilling")
             with open(str(model_dir / "replay_buffer.pkl"), 'rb') as input:
@@ -38,7 +41,7 @@ def run(config):
             maddpg.distill(2048, 1024, replay_buffer, hard=True)
 
             print("Creating distilled heatmap")
-            heatmap_fn(maddpg, title="{} Agent Policies After Distillation".format(nagents), save=config.save)
+            heatmap_fn(maddpg, title="{} Agent Policies After Distillation".format(nagents), save=config.save, continuous=continuous)
         except Exception as e:
             print(e)
 

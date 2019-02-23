@@ -58,7 +58,7 @@ def add_contours(axes, q_vals, fig):
     CS = axes.contourf(X, Y, Z, 25)
     fig.colorbar(CS, ax=axes, shrink=0.9)
 
-def heatmap(maddpg, title="Agent Policies", save=False):
+def heatmap(maddpg, title="Agent Policies", save=False, continuous=False):
     fig, axes = plt.subplots(2, 2)
     plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=None, hspace=0.4)
 
@@ -102,20 +102,23 @@ def heatmap(maddpg, title="Agent Policies", save=False):
                                           requires_grad=False)
                                  for k in range(maddpg.nagents)]
                     torch_agent_logits = maddpg.action_logits(torch_obs)
-                    torch_agent_onehots = [onehot_from_logits(ac) for ac in torch_agent_logits]
+                    if continuous:
+                        torch_agent_action = torch_agent_logits
+                    else:
+                        torch_agent_action = [onehot_from_logits(ac) for ac in torch_agent_logits]
                     action = torch_agent_logits[i].data.numpy()[0]
-                    # action = torch_agent_onehots[i].data.numpy()[0]
+                    # action = torch_agent_action[i].data.numpy()[0]
 
                     obs = [o.repeat(2,1) for o in torch_obs]
-                    act = [a.repeat(2,1) for a in torch_agent_onehots]
+                    act = [a.repeat(2,1) for a in torch_agent_action]
 
                     vf_in = torch.cat((*obs, *act), dim=1)
                     vf_out = maddpg.agents[i].critic(vf_in)
-                    # vf_out = maddpg.agents[0].critic(vf_in)
-
-                    delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
+                    if continuous:
+                        delta_dict[tuple(agent_pos)] = action
+                    else:
+                        delta_dict[tuple(agent_pos)] = [action[1] - action[2], action[3] - action[4]]
                     val_dict[tuple(agent_pos)] = vf_out.mean()
-
             add_arrows(ax, delta_dict, arrow_color=color[i], rescale=False, q_vals=val_dict)
             add_contours(ax2, val_dict, fig2)
             for l in range(len(agent_poses)):
@@ -130,4 +133,4 @@ def heatmap(maddpg, title="Agent Policies", save=False):
     fig2.suptitle(title.replace('Policies', 'Value Functions'))
 
     if save:
-        plt.savefig("{}.png".format(title), bbox_inches="tight", dpi=300) 
+        plt.savefig("{}.png".format(title), bbox_inches="tight", dpi=300)

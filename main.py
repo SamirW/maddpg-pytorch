@@ -243,7 +243,7 @@ if __name__ == '__main__':
                         choices=['MADDPG', 'DDPG'])
     parser.add_argument("--discrete_action",
                         action='store_true',
-                        default=True)
+                        default=False)
     parser.add_argument("--save_buffer",
                         action="store_true",
                         default=False)
