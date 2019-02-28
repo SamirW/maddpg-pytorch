@@ -84,10 +84,11 @@ def run(config):
         maddpg.prep_rollouts(device='cpu')
 
         if ep_i >= config.flip_ep:
-            explr_pct_remaining = max(0, 2*(config.n_exploration_eps - (ep_i-config.flip_ep))) / config.n_exploration_eps
+            explr_pct_remaining = max(0, config.n_exploration_eps - (ep_i - config.flip_ep)) / config.n_exploration_eps
         else:
             explr_pct_remaining = max(0, config.n_exploration_eps - ep_i) / config.n_exploration_eps
-        maddpg.scale_noise(config.final_noise_scale + (config.init_noise_scale - config.final_noise_scale) * explr_pct_remaining)
+        noise = config.final_noise_scale + (config.init_noise_scale - config.final_noise_scale) * explr_pct_remaining
+        maddpg.scale_noise(noise)
         maddpg.reset_noise()
 
         for et_i in range(config.episode_length):
@@ -132,6 +133,7 @@ def run(config):
         for a_i, a_ep_rew in enumerate(ep_rews):
             logger.add_scalar('agent%i/mean_episode_rewards' % a_i, a_ep_rew, ep_i)
 
+        logger.add_scalar('misc/noise', noise, ep_i)
         logger.add_scalar('joint/mean_episode_rewards', np.sum(ep_rews), ep_i)
         log[config.log_name].info("Train episode reward {:0.5f} at episode {}".format(np.sum(ep_rews), ep_i))
 
