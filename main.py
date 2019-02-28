@@ -66,7 +66,7 @@ def run(config):
     flip = False
 
     print("Distilling every {} episodes".format(config.distill_freq))
-    print("Distilling hard at episode {}".format(config.hard_distill_ep))
+    print("Distilling hard at episode {}".format(config.distill_ep))
     print("Flipping at episode {}".format(config.flip_ep))
     print("********Starting training********")
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
@@ -126,10 +126,7 @@ def run(config):
                             for a_i in range(maddpg.nagents):
                                 sample = replay_buffer.sample(config.batch_size,
                                                               to_gpu=USE_CUDA)
-                                if ((ep_i > config.flip_ep) and (ep_i < (config.flip_ep + config.skip_actor_length))):
-                                    maddpg.update(sample, a_i, logger=logger, skip_actor=True)
-                                else:
-                                    maddpg.update(sample, a_i, logger=logger)
+                                maddpg.update(sample, a_i, logger=logger, flip_critic=config.flip_critic)
                             maddpg.update_all_targets()
                         maddpg.prep_rollouts(device='cpu')
         ep_rews = replay_buffer.get_average_rewards(
@@ -145,7 +142,7 @@ def run(config):
             maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
             maddpg.save(str(run_dir / 'model.pt'))
 
-        if (ep_i+1) == config.hard_distill_ep:
+        if (ep_i+1) == config.distill_ep:
             print("************Distilling***********")
             os.makedirs(str(run_dir / 'models'), exist_ok=True)
             maddpg.save(str(run_dir / 'models/before_distillation.pt'.format(ep_i)))
@@ -208,7 +205,7 @@ if __name__ == '__main__':
     parser.add_argument("--eval_ep",
                         default=999999, type=int,
                         help="Episode at which to start evaluating")
-    parser.add_argument("--hard_distill_ep",
+    parser.add_argument("--distill_ep",
                         default=999999, type=int,
                         help="Episode at which to hard distill")
     parser.add_argument("--distill_freq",
@@ -220,6 +217,8 @@ if __name__ == '__main__':
     parser.add_argument("--skip_actor_length",
                         default=0, type=int,
                         help="How long to skip actor updates")
+    parser.add_argument("--flip_critic", action="store_true",
+                        default=False, help="")
     parser.add_argument("--distill_pass_actor",
                         action="store_true",
                         default=False,

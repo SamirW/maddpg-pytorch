@@ -1,6 +1,7 @@
 import copy
 import torch
 import torch.nn.functional as F
+import itertools
 import numpy as np
 from torch.distributions import Categorical
 from torch import Tensor
@@ -110,7 +111,7 @@ class MADDPG(object):
         vf_in = torch.cat((*obs, *act), dim=1)
         return [a.critic(vf_in) for a in self.agents]  
 
-    def update(self, sample, agent_i, parallel=False, logger=None, skip_actor=False):
+    def update(self, sample, agent_i, parallel=False, logger=None, skip_actor=False, flip_critic=False):
         """
         Update parameters of agent model based on sample from replay buffer
         Inputs:
@@ -126,6 +127,8 @@ class MADDPG(object):
         obs, acs, rews, next_obs, dones = sample
         curr_agent = self.agents[agent_i]
 
+        trgt_vf_ins = []
+        target_values = []
         curr_agent.critic_optimizer.zero_grad()
         if self.alg_types[agent_i] == 'MADDPG':
             if self.discrete_action: # one-hot encode action
@@ -134,36 +137,52 @@ class MADDPG(object):
             else:
                 all_trgt_acs = [pi(nobs) for pi, nobs in zip(self.target_policies,
                                                              next_obs)]
-
-            trgt_vf_in = torch.cat((*next_obs, *all_trgt_acs), dim=1)
-        else:  # DDPG
-            if self.discrete_action:
-                trgt_vf_in = torch.cat((next_obs[agent_i],
-                                        onehot_from_logits(
-                                            curr_agent.target_policy(
-                                                next_obs[agent_i]))),
-                                       dim=1)
+            if flip_critic:
+                for input_pair in itertools.permutations(zip(next_obs, all_trgt_acs)):
+                    n_o, all_t_a = zip(*input_pair)
+                    trgt_vf_ins.append(torch.cat((*n_o, *all_t_a), dim=1))
             else:
-                trgt_vf_in = torch.cat((next_obs[agent_i],
-                                        curr_agent.target_policy(next_obs[agent_i])),
-                                       dim=1)
-        target_value = (rews[agent_i].view(-1, 1) + self.gamma *
-                        curr_agent.target_critic(trgt_vf_in) *
-                        (1 - dones[agent_i].view(-1, 1)))
-
-        if self.alg_types[agent_i] == 'MADDPG':
-            vf_in = torch.cat((*obs, *acs), dim=1)
+                trgt_vf_ins.append(torch.cat((*next_obs, *all_trgt_acs), dim=1))
         else:  # DDPG
+            raise ValueError()
+            # if self.discrete_action:
+            #     trgt_vf_in = torch.cat((next_obs[agent_i],
+            #                             onehot_from_logits(
+            #                                 curr_agent.target_policy(
+            #                                     next_obs[agent_i]))),
+            #                            dim=1)
+            # else:
+            #     trgt_vf_in = torch.cat((next_obs[agent_i],
+            #                             curr_agent.target_policy(next_obs[agent_i])),
+            #                            dim=1)
+        for trgt_vf_in in trgt_vf_ins:
+            target_values.append((rews[agent_i].view(-1, 1) + self.gamma *
+                        curr_agent.target_critic(trgt_vf_in) *
+                        (1 - dones[agent_i].view(-1, 1))))
+
+        vf_ins = []
+        actual_values = []
+        if self.alg_types[agent_i] == 'MADDPG':
+            if flip_critic:
+                for input_pair in itertools.permutations(zip(obs, acs)):
+                    o, a = zip(*input_pair)
+                    vf_ins.append(torch.cat((*o, *a), dim=1))
+            else:
+                vf_ins.append(torch.cat((*obs, *acs), dim=1))
+        else:  # DDPG
+            raise ValueError()
             vf_in = torch.cat((obs[agent_i], acs[agent_i]), dim=1)
 
-        actual_value = curr_agent.critic(vf_in)
+        for vf_in in vf_ins:
+            actual_values.append(curr_agent.critic(vf_in))
 
-        vf_loss = MSELoss(actual_value, target_value.detach())
-        vf_loss.backward()
-        if parallel:
-            average_gradients(curr_agent.critic)
-        torch.nn.utils.clip_grad_norm_(curr_agent.critic.parameters(), 0.5)
-        curr_agent.critic_optimizer.step()
+        for actual_value, target_value in zip(actual_values, target_values):
+            vf_loss = MSELoss(actual_value, target_value.detach())
+            vf_loss.backward()
+            if parallel:
+                average_gradients(curr_agent.critic)
+            torch.nn.utils.clip_grad_norm_(curr_agent.critic.parameters(), 0.5)
+            curr_agent.critic_optimizer.step()
 
         if not skip_actor:
             curr_agent.policy_optimizer.zero_grad()
