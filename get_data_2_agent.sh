@@ -70,5 +70,5 @@ python3.6 main.py simple_spread_flip eval_graph_relative \
 --seed $seed \
 --n_episodes 10000 \
 --flip_ep 3000 \
---log_comment "critic_flip_only" \
 --flip_critic \
+--log_comment "critic_flip_only" \

@@ -129,7 +129,6 @@ class MADDPG(object):
 
         trgt_vf_ins = []
         target_values = []
-        curr_agent.critic_optimizer.zero_grad()
         if self.alg_types[agent_i] == 'MADDPG':
             if self.discrete_action: # one-hot encode action
                 all_trgt_acs = [onehot_from_logits(pi(nobs)) for pi, nobs in
@@ -177,6 +176,7 @@ class MADDPG(object):
             actual_values.append(curr_agent.critic(vf_in))
 
         for actual_value, target_value in zip(actual_values, target_values):
+            curr_agent.critic_optimizer.zero_grad()
             vf_loss = MSELoss(actual_value, target_value.detach())
             vf_loss.backward()
             if parallel:

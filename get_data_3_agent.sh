@@ -47,6 +47,7 @@ python3.6 main.py simple_spread_flip_3 eval_graph_relative \
 --n_episodes 10000 \
 --flip_ep 4000 \
 --distill_ep 4000 \
+--distill_pass_actor \
 --log_comment "critic_only" \
 
 python3.6 main.py simple_spread_flip_3 eval_graph_relative \
@@ -70,5 +71,5 @@ python3.6 main.py simple_spread_flip_3 eval_graph_relative \
 --seed $seed \
 --n_episodes 10000 \
 --flip_ep 4000 \
---log_comment "critic_flip_only" \
 --flip_critic \
+--log_comment "critic_flip_only" \
