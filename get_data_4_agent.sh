@@ -11,11 +11,11 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 # Tensorboard
 pkill tensorboard
 
-# Virtualenv
-cd $DIR
-virtualenv venv
-source venv/bin/activate
-pip3 install -r requirements.txt
+# # Virtualenv
+# cd $DIR
+# virtualenv venv
+# source venv/bin/activate
+# pip3 install -r requirements.txt
 
 # Add baseline package to path
 export PYTHONPATH=$DIR/thirdparty/multiagent-particle-envs:$PYTHONPATH

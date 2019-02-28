@@ -91,7 +91,6 @@ def run(config):
         maddpg.reset_noise()
 
         for et_i in range(config.episode_length):
-
             # rearrange observations to be per agent, and convert to torch Variable
             torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])),
                                   requires_grad=False)
@@ -124,8 +123,7 @@ def run(config):
                             maddpg.prep_training(device='cpu')
                         for u_i in range(config.n_rollout_threads):
                             for a_i in range(maddpg.nagents):
-                                sample = replay_buffer.sample(config.batch_size,
-                                                              to_gpu=USE_CUDA)
+                                sample = replay_buffer.sample(config.batch_size, to_gpu=USE_CUDA)
                                 maddpg.update(sample, a_i, logger=logger, flip_critic=config.flip_critic)
                             maddpg.update_all_targets()
                         maddpg.prep_rollouts(device='cpu')
@@ -136,6 +134,34 @@ def run(config):
 
         logger.add_scalar('joint/mean_episode_rewards', np.sum(ep_rews), ep_i)
         log[config.log_name].info("Train episode reward {:0.5f} at episode {}".format(np.sum(ep_rews), ep_i))
+
+        # Evaluation for logging
+        if ep_i % 10 == 0:
+            obs = env.reset(flip=flip)
+
+            maddpg.prep_rollouts(device='cpu')
+            maddpg.scale_noise(0.)
+            maddpg.reset_noise()
+
+            eval_ep_reward = 0.
+
+            for et_i in range(config.episode_length):
+                # rearrange observations to be per agent, and convert to torch Variable
+                torch_obs = [Variable(torch.Tensor(np.vstack(obs[:, i])), requires_grad=False)
+                             for i in range(maddpg.nagents)]
+
+                # get actions as torch Variables
+                torch_agent_actions = maddpg.step(torch_obs, explore=True)
+                agent_actions = [ac.data.numpy() for ac in torch_agent_actions]
+                actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
+
+                next_obs, rewards, dones, infos = env.step(actions)
+
+                obs = next_obs
+                eval_ep_reward += rewards[0][0]
+
+            logger.add_scalar('joint/eval_reward', np.sum(eval_ep_reward), ep_i)
+            log[config.log_name].info("Evaluation episode reward {:0.5f} at episode {}".format(eval_ep_reward, ep_i))
 
         if ep_i % config.save_interval < config.n_rollout_threads:
             os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
