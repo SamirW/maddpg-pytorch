@@ -239,42 +239,47 @@ class MADDPG(object):
             soft_update(a.target_policy, a.policy, self.tau)
         self.niter += 1
 
-    def distill(self, num_distill, batch_size, replay_buffer, hard=False, pass_actor=False, pass_critic = False, temperature=0.01, tau=0.01):
-        replay_buffer.prepare_weights()
+    def distill(self, num_distill, batch_size, replay_buffer1, replay_buffer2, 
+                hard=False, pass_actor=False, pass_critic = False, temperature=0.01, tau=0.01):
+        # replay_buffer.prepare_weights()
 
         if pass_actor and pass_critic:
             return 0
 
         # Repeat multiple times
         for i in range(num_distill):
-            # Get samples
-            sample = replay_buffer.sample(batch_size, to_gpu=False)
-            obs, acs, _, _, _ = sample
-
-            # Find actor outputs for each agent + distilled
-            all_actor_logits = []
-            distilled_actor_logits = []
-            for pi, ob in zip(self.policies, obs):
-                all_actor_logits.append(pi(ob))
-                distilled_actor_logits.append(self.distilled_agent.policy(ob))
-
-            # Find critic outputs for each agent + distilled
-            # Reverse distilled vf_input about 50% of the time to
-            # ensure distilled critic knows what to do in both situations
-            all_critic_logits = []
-            distilled_critic_logits = []
-            for p, crit in enumerate(self.critics):
-                vf_in = torch.cat((*obs, *acs), dim=1)
-                
-                dist_vf_in = list(zip(obs, acs))
-                np.random.shuffle(dist_vf_in)
-                dist_obs, dist_acs = zip(*dist_vf_in) 
-
-                vf_in_distilled = torch.cat((*dist_obs, *dist_acs), dim=1)
-                all_critic_logits.append(crit(vf_in))
-                distilled_critic_logits.append(self.distilled_agent.critic(vf_in_distilled))
-
             for j, agent in enumerate(self.agents):
+                # Get samples
+                if j == 0:
+                    replay_buffer = replay_buffer1
+                else:
+                    replay_buffer = replay_buffer2
+
+                sample = replay_buffer.sample(batch_size, to_gpu=False)
+                obs, acs, _, _, _ = sample
+
+                # Find actor outputs for each agent + distilled
+                all_actor_logits = []
+                distilled_actor_logits = []
+                for pi, ob in zip(self.policies, obs):
+                    all_actor_logits.append(pi(ob))
+                    distilled_actor_logits.append(self.distilled_agent.policy(ob))
+
+                # Find critic outputs for each agent + distilled
+                # Reverse distilled vf_input about 50% of the time to
+                # ensure distilled critic knows what to do in both situations
+                all_critic_logits = []
+                distilled_critic_logits = []
+                for p, crit in enumerate(self.critics):
+                    vf_in = torch.cat((*obs, *acs), dim=1)
+                    
+                    dist_vf_in = list(zip(obs, acs))
+                    np.random.shuffle(dist_vf_in)
+                    dist_obs, dist_acs = zip(*dist_vf_in) 
+
+                    vf_in_distilled = torch.cat((*dist_obs, *dist_acs), dim=1)
+                    all_critic_logits.append(crit(vf_in))
+                    distilled_critic_logits.append(self.distilled_agent.critic(vf_in_distilled))
 
                 if not pass_actor:
                     # Distill agent
@@ -426,4 +431,30 @@ class MADDPG(object):
         instance.init_dict = save_dict['init_dict']
         for a, params in zip(instance.agents, save_dict['agent_params']):
             a.load_params(params)
+        return instance
+
+    @classmethod
+    def init_from_save(cls, filename1, filename2):
+        print("[ INFO ] Loaded two models from savepoint")
+    
+        save_dict1 = torch.load(filename1)
+        save_dict2 = torch.load(filename2)                                                                      
+    
+        instance = cls(**save_dict1['init_dict'])
+        instance.init_dict = save_dict1['init_dict']
+    
+        # Load agent 1 from save dict1
+        counter = 0
+        for a, params in zip(instance.agents, save_dict1['agent_params']):
+            if counter == 0:
+                a.load_params(params)
+            counter += 1
+    
+        # Load agent 2 from save dict2
+        counter = 0
+        for a, params in zip(instance.agents, save_dict2['agent_params']):
+            if counter == 1:
+                a.load_params(params)
+            counter += 1
+    
         return instance
