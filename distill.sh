@@ -27,12 +27,50 @@ cd $DIR
 # Comment for using GPU
 export CUDA_VISIBLE_DEVICES=-1
 
-python3.6 main_distill.py complex_push mode2 \
---seed 0 \
---n_episodes 5000 \
---init_noise_scale 0.3 \
---final_noise_scale 0 \
---n_exploration_eps 3000 \
---hidden_dim 256 \
---episode_length 100 \
---log_comment "no_distill"
+for seed in {0..0..1}
+    do
+        python3.6 main_distill.py complex_push mode2 \
+        --seed $seed \
+        --n_episodes 5000 \
+        --init_noise_scale 0.3 \
+        --final_noise_scale 0 \
+        --n_exploration_eps 3000 \
+        --hidden_dim 256 \
+        --episode_length 100 \
+        --log_comment "no_distill"
+
+        python3.6 main_distill.py complex_push mode2 \
+        --seed $seed \
+        --n_episodes 5000 \
+        --init_noise_scale 0.3 \
+        --final_noise_scale 0 \
+        --n_exploration_eps 3000 \
+        --hidden_dim 256 \
+        --episode_length 100 \
+        --distill_ep 5000 \
+        --log_comment "distill_all"
+
+        python3.6 main_distill.py complex_push mode2 \
+        --seed $seed \
+        --n_episodes 5000 \
+        --init_noise_scale 0.3 \
+        --final_noise_scale 0 \
+        --n_exploration_eps 3000 \
+        --hidden_dim 256 \
+        --episode_length 100 \
+        --distill_ep 5000 \
+        --distill_pass_critic \
+        --log_comment "actor_only"
+
+        python3.6 main_distill.py complex_push mode2 \
+        --seed $seed \
+        --n_episodes 5000 \
+        --init_noise_scale 0.3 \
+        --final_noise_scale 0 \
+        --n_exploration_eps 3000 \
+        --hidden_dim 256 \
+        --episode_length 100 \
+        --distill_ep 5000 \
+        --distill_pass_actor \
+        --log_comment "critic_only"
+    done

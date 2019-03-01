@@ -72,16 +72,17 @@ def run(config):
                                   for acsp in env.action_space])
 
     # Distillation
-    print("************Distilling***********")
-    maddpg.prep_rollouts(device='cpu')
-    maddpg.distill(
-        512, 
-        batch_size=1024, 
-        replay_buffer1=replay_buffer_mode0, 
-        replay_buffer2=replay_buffer_mode1, 
-        hard=True, 
-        pass_actor=config.distill_pass_actor, 
-        pass_critic=config.distill_pass_critic)
+    if config.distill_ep < 10000:
+        print("************Distilling***********")
+        maddpg.prep_rollouts(device='cpu')
+        maddpg.distill(
+            2048, 
+            batch_size=1024, 
+            replay_buffer1=replay_buffer_mode0, 
+            replay_buffer2=replay_buffer_mode1, 
+            hard=True, 
+            pass_actor=config.distill_pass_actor, 
+            pass_critic=config.distill_pass_critic)
 
     print("Distilling every {} episodes".format(config.distill_freq))
     print("Distilling hard at episode {}".format(config.distill_ep))
@@ -174,14 +175,14 @@ def run(config):
             logger.add_scalar('joint/eval_reward', np.sum(eval_ep_reward), ep_i)
             log[config.log_name].info("Evaluation episode reward {:0.5f} at episode {}".format(eval_ep_reward, ep_i))
 
-        if ep_i % 500 == 0:
-            os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
-            maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
-            maddpg.save(str(run_dir / 'model.pt'))
+        # if ep_i % 500 == 0:
+        #     os.makedirs(str(run_dir / 'incremental'), exist_ok=True)
+        #     maddpg.save(str(run_dir / 'incremental' / ('model_ep%i.pt' % (ep_i + 1))))
+        #     maddpg.save(str(run_dir / 'model.pt'))
 
-            filename = 'replay_buffer_' + str(ep_i) + '.pkl'
-            with open(str(run_dir / filename), 'wb') as output:
-                pickle.dump(replay_buffer, output, -1)
+        #     filename = 'replay_buffer_' + str(ep_i) + '.pkl'
+        #     with open(str(run_dir / filename), 'wb') as output:
+        #         pickle.dump(replay_buffer, output, -1)
 
         # if (ep_i) % config.model_save_freq == 0:
         #     print("************Saving model***********")
