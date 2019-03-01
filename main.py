@@ -105,8 +105,8 @@ def run(config):
             # rearrange actions to be per environment
             actions = [[ac[i] for ac in agent_actions] for i in range(config.n_rollout_threads)]
             next_obs, rewards, dones, infos = env.step(actions)
-            # if et_i == (config.episode_length-1):
-            #     dones = dones + 1
+            if et_i == (config.episode_length-1):
+                dones = dones + 1
 
             if (ep_i+1) % config.display_every == 0:
                 time.sleep(0.01)
