@@ -4,6 +4,7 @@ import time
 import os
 import pickle
 import numpy as np
+import imageio
 from gym.spaces import Box, Discrete
 from pathlib import Path
 from torch.autograd import Variable
@@ -37,6 +38,12 @@ def run(config):
     model_file = run_dir / "model.pt"
     log_dir = run_dir / 'logs'
 
+    if config.save_gif:
+        frames = []
+        gif_path = run_dir / 'gifs'
+        gif_path.mkdir(exist_ok=True)
+        ifi = 1 / 30.
+
     torch.manual_seed(config.seed)
     np.random.seed(config.seed)
     if not USE_CUDA:
@@ -47,8 +54,18 @@ def run(config):
     t = 0
     flip = False
 
+
     print("********Starting training********")
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
+
+        if (ep_i) == config.hard_distill_ep:
+            print("************Distilling***********")
+
+            maddpg.prep_rollouts(device='cpu')
+            with open(str(run_dir / "replay_buffer.pkl"), 'rb') as input:
+                distill_replay_buffer = pickle.load(input)
+            maddpg.distill(config.num_distills, 1024, distill_replay_buffer, hard=True,
+                           pass_actor=config.distill_pass_actor, pass_critic=config.distill_pass_critic)
 
         # Flip environment
         if ep_i == config.flip_ep:
@@ -61,6 +78,9 @@ def run(config):
 
         maddpg.scale_noise(0)
         maddpg.reset_noise()
+
+        if config.save_gif:
+            frames.append(env.render('rgb_array')[0][0])
 
         for et_i in range(config.episode_length):
 
@@ -84,17 +104,20 @@ def run(config):
             time.sleep(0.015)
             env.render()
 
+            if config.save_gif:
+                frames.append(env.render('rgb_array')[0][0])
+
             obs = next_obs
             t += config.n_rollout_threads
 
-        if (ep_i + 1) == config.hard_distill_ep:
-            print("************Distilling***********")
 
-            maddpg.prep_rollouts(device='cpu')
-            with open(str(run_dir / "replay_buffer.pkl"), 'rb') as input:
-                distill_replay_buffer = pickle.load(input)
-            maddpg.distill(config.num_distills, 1024, distill_replay_buffer, hard=True,
-                           pass_actor=config.distill_pass_actor, pass_critic=config.distill_pass_critic)
+
+    if config.save_gif:
+        frames = np.array(frames)
+        while (gif_path / ('{}.gif'.format(config.gif_name))).exists():
+            gif_num += 1
+        imageio.mimsave(str(gif_path / ('{}.gif'.format(config.gif_name))),
+                        frames, duration=ifi)
 
 
 if __name__ == '__main__':
@@ -161,6 +184,12 @@ if __name__ == '__main__':
     parser.add_argument("--save_buffer",
                         action="store_true",
                         default=False)
+    parser.add_argument("--save_gif",
+                        action="store_true",
+                        default=False)
+    parser.add_argument("--gif_name",
+                        default='gif', type=str,
+                        help="gif name")
 
     config = parser.parse_args()
 

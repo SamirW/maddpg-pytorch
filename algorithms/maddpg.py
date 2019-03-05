@@ -228,8 +228,8 @@ class MADDPG(object):
 
         # Repeat multiple times
         for i in range(num_distill):
-            if (i % (int(num_distill/10.))) == 0:
-                print("{}%".format(int(100*i/num_distill)))
+            if (i % (int(num_distill/20.))) == 0:
+                print("{}%".format(int(100*(i+1)/num_distill)))
             # Get samples
             sample = replay_buffer.sample(batch_size, to_gpu=False)
             obs, acs, _, _, _ = sample

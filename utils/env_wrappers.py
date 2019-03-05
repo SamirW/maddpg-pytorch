@@ -125,8 +125,8 @@ class DummyVecEnv(VecEnv):
         results = [env._reset(flip=flip) for env in self.envs]
         return np.array(results)
 
-    def render(self):
-        [env._render() for env in self.envs]
+    def render(self, mode='human'): 
+        return [env._render(mode=mode) for env in self.envs]
 
     def close(self):
         return
