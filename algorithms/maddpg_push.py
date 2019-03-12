@@ -1,0 +1,518 @@
+import copy
+import torch
+import torch.nn.functional as F
+import numpy as np
+from torch.distributions import Categorical
+from torch import Tensor
+from torch.autograd import Variable
+from gym.spaces import Box, Discrete
+from utils.networks import MLPNetwork
+from utils.misc import soft_update, hard_update, average_gradients, onehot_from_logits, gumbel_softmax, batch_gumbel_softmax
+from utils.agents import DDPGAgent
+
+MSELoss = torch.nn.MSELoss()
+KLLoss = torch.nn.KLDivLoss(size_average=False, reduce=False)
+
+
+class MADDPGPUSH(object):
+    """
+    Wrapper class for DDPG-esque (i.e. also MADDPG) agents in multi-agent task
+    """
+
+    def __init__(self, agent_init_params, alg_types,
+                 gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64,
+                 discrete_action=False):
+        """
+        Inputs:
+            agent_init_params (list of dict): List of dicts with parameters to
+                                              initialize each agent
+                num_in_pol (int): Input dimensions to policy
+                num_out_pol (int): Output dimensions to policy
+                num_in_critic (int): Input dimensions to critic
+            alg_types (list of str): Learning algorithm for each agent (DDPG
+                                       or MADDPG)
+            gamma (float): Discount factor
+            tau (float): Target update rate
+            lr (float): Learning rate for policy and critic
+            hidden_dim (int): Number of hidden dimensions for networks
+            discrete_action (bool): Whether or not to use discrete action space
+        """
+        self.nagents = len(alg_types)
+        self.alg_types = alg_types
+        self.agents = [DDPGAgent(lr=lr, discrete_action=discrete_action,
+                                 hidden_dim=hidden_dim,
+                                 **params)
+                       for params in agent_init_params]
+        self.distilled_agent = DDPGAgent(lr=lr, discrete_action=discrete_action,
+                                         hidden_dim=hidden_dim,
+                                         **agent_init_params[0])
+        self.agent_init_params = agent_init_params
+        self.gamma = gamma
+        self.tau = tau
+        self.lr = lr
+        self.discrete_action = discrete_action
+        self.pol_dev = 'cpu'  # device for policies
+        self.critic_dev = 'cpu'  # device for critics
+        self.trgt_pol_dev = 'cpu'  # device for target policies
+        self.trgt_critic_dev = 'cpu'  # device for target critics
+        self.niter = 0
+
+    @property
+    def policies(self):
+        return [a.policy for a in self.agents]
+
+    @property
+    def target_policies(self):
+        return [a.target_policy for a in self.agents]
+
+    @property
+    def critics(self):
+        return [a.critic for a in self.agents]
+
+    def scale_noise(self, scale):
+        """
+        Scale noise for each agent
+        Inputs:
+            scale (float): scale of noise
+        """
+        for a in self.agents:
+            a.scale_noise(scale)
+
+    def reset_noise(self):
+        for a in self.agents:
+            a.reset_noise()
+
+    def step(self, observations, explore=False):
+        """
+        Take a step forward in environment with all agents
+        Inputs:
+            observations: List of observations for each agent
+            explore (boolean): Whether or not to add exploration noise
+        Outputs:
+            actions: List of actions for each agent
+        """
+        return [a.step(obs, explore=explore) for a, obs in zip(self.agents,
+                                                               observations)]
+
+    def action_logits(self, observations):
+        """
+        Get logits of action policy for all agents
+        Inputs:
+            observations: List of observations for each agent
+        Outputs:
+            logits: logits of action policy for each agent
+        """
+        return [a.action_logits(obs) for a, obs in zip(self.agents,
+                                                       observations)]
+
+    def get_critic_vals(self, obs, act):
+        obs = [o.repeat(2, 1) for o in obs]
+        act = [a.repeat(2, 1) for a in act]
+        vf_in = torch.cat((*obs, *act), dim=1)
+        return [a.critic(vf_in) for a in self.agents]
+
+    def update(self, sample, agent_i, parallel=False, logger=None, skip_actor=False):
+        """
+        Update parameters of agent model based on sample from replay buffer
+        Inputs:
+            sample: tuple of (observations, actions, rewards, next
+                    observations, and episode end masks) sampled randomly from
+                    the replay buffer. Each is a list with entries
+                    corresponding to each agent
+            agent_i (int): index of agent to update
+            parallel (bool): If true, will average gradients across threads
+            logger (SummaryWriter from Tensorboard-Pytorch):
+                If passed in, important quantities will be logged
+        """
+        obs, acs, rews, next_obs, dones = sample
+        curr_agent = self.agents[agent_i]
+
+        curr_agent.critic_optimizer.zero_grad()
+        if self.alg_types[agent_i] == 'MADDPG':
+            if self.discrete_action:  # one-hot encode action
+                all_trgt_acs = [onehot_from_logits(pi(nobs)) for pi, nobs in
+                                zip(self.target_policies, next_obs)]
+            else:
+                all_trgt_acs = [pi(nobs) for pi, nobs in zip(self.target_policies,
+                                                             next_obs)]
+
+            trgt_vf_in = torch.cat((*next_obs, *all_trgt_acs), dim=1)
+        else:  # DDPG
+            if self.discrete_action:
+                trgt_vf_in = torch.cat((next_obs[agent_i],
+                                        onehot_from_logits(
+                                            curr_agent.target_policy(
+                                                next_obs[agent_i]))),
+                                       dim=1)
+            else:
+                trgt_vf_in = torch.cat((next_obs[agent_i],
+                                        curr_agent.target_policy(next_obs[agent_i])),
+                                       dim=1)
+        target_value = (rews[agent_i].view(-1, 1) + self.gamma *
+                        curr_agent.target_critic(trgt_vf_in) *
+                        (1 - dones[agent_i].view(-1, 1)))
+
+        if self.alg_types[agent_i] == 'MADDPG':
+            vf_in = torch.cat((*obs, *acs), dim=1)
+        else:  # DDPG
+            vf_in = torch.cat((obs[agent_i], acs[agent_i]), dim=1)
+
+        actual_value = curr_agent.critic(vf_in)
+
+        vf_loss = MSELoss(actual_value, target_value.detach())
+        vf_loss.backward()
+        if parallel:
+            average_gradients(curr_agent.critic)
+        torch.nn.utils.clip_grad_norm_(curr_agent.critic.parameters(), 0.5)
+        curr_agent.critic_optimizer.step()
+
+        if not skip_actor:
+            curr_agent.policy_optimizer.zero_grad()
+
+            if self.discrete_action:
+                # Forward pass as if onehot (hard=True) but backprop through a differentiable
+                # Gumbel-Softmax sample. The MADDPG paper uses the Gumbel-Softmax trick to backprop
+                # through discrete categorical samples, but I'm not sure if that is
+                # correct since it removes the assumption of a deterministic policy for
+                # DDPG. Regardless, discrete policies don't seem to learn
+                # properly without it.
+                curr_pol_out = curr_agent.policy(obs[agent_i])
+                curr_pol_vf_in = gumbel_softmax(curr_pol_out, hard=True)
+            else:
+                curr_pol_out = curr_agent.policy(obs[agent_i])
+                curr_pol_vf_in = curr_pol_out
+            if self.alg_types[agent_i] == 'MADDPG':
+                all_pol_acs = []
+                for i, pi, ob in zip(range(self.nagents), self.policies, obs):
+                    if i == agent_i:
+                        all_pol_acs.append(curr_pol_vf_in)
+                    elif self.discrete_action:
+                        all_pol_acs.append(onehot_from_logits(pi(ob)))
+                    else:
+                        all_pol_acs.append(pi(ob))
+
+                vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
+            else:  # DDPG
+                vf_in = torch.cat((obs[agent_i], curr_pol_vf_in),
+                                  dim=1)
+            pol_loss = -curr_agent.critic(vf_in).mean()
+            pol_loss += (curr_pol_out**2).mean() * 1e-3
+            pol_loss.backward()
+            if parallel:
+                average_gradients(curr_agent.policy)
+            torch.nn.utils.clip_grad_norm_(curr_agent.policy.parameters(), 0.5)
+            curr_agent.policy_optimizer.step()
+        else:
+            pol_loss = 0
+
+        if logger is not None:
+            logger.add_scalars('agent%i/losses' % agent_i,
+                               {'vf_loss': vf_loss,
+                                'pol_loss': pol_loss,
+                                'vf': actual_value.mean()},
+                               self.niter)
+
+    def update_all_targets(self):
+        """
+        Update all target networks (called after normal updates have been
+        performed for each agent)
+        """
+        for a in self.agents:
+            soft_update(a.target_critic, a.critic, self.tau)
+            soft_update(a.target_policy, a.policy, self.tau)
+        self.niter += 1
+
+    def distill(self, num_distill, batch_size, replay_buffer, hard=False, pass_actor=False, pass_critic=False, temperature=0.01, tau=0.01):
+        if pass_actor and pass_critic:
+            return 0
+
+        # Repeat multiple times
+        for i in range(num_distill):
+            if (i % (int(num_distill/20.))) == 0:
+                print("{}%".format(int(100*(i+1)/num_distill)))
+            # Get samples
+            sample = replay_buffer.sample(batch_size, to_gpu=False)
+            obs, acs, _, _, _ = sample
+
+            # Find actor outputs for each agent + distilled
+            all_actor_logits = []
+            distilled_actor_logits = []
+            for pi, ob in zip(self.policies, obs):
+                all_actor_logits.append(pi(ob))
+                distilled_actor_logits.append(self.distilled_agent.policy(ob))
+
+            # Find critic outputs for each agent + distilled
+            # Mix input to critic by shuffling
+            all_critic_logits = []
+            distilled_critic_logits = []
+            for p, crit in enumerate(self.critics):
+                vf_in = torch.cat((*obs, *acs), dim=1)
+
+                dist_vf_in = list(zip(obs, acs))
+                np.random.shuffle(dist_vf_in)
+                dist_obs, dist_acs = zip(*dist_vf_in)
+
+                vf_in_distilled = torch.cat((*dist_obs, *dist_acs), dim=1)
+                all_critic_logits.append(crit(vf_in))
+                distilled_critic_logits.append(
+                    self.distilled_agent.critic(vf_in_distilled))
+
+            for j, agent in enumerate(self.agents):
+
+                if not pass_actor:
+                    # Distill agent
+                    self.distilled_agent.policy_optimizer.zero_grad()
+
+                    with torch.no_grad():
+                        target = F.softmax(all_actor_logits[j], dim=1)
+                    student = F.log_softmax(distilled_actor_logits[j], dim=1)
+                    loss = KLLoss(student, target) / batch_size
+                    loss = loss.sum()
+                    loss.backward()
+
+                    torch.nn.utils.clip_grad_norm_(
+                        self.distilled_agent.policy.parameters(), 0.5)
+                    self.distilled_agent.policy_optimizer.step()
+
+                if not pass_critic:
+                    # Distill critic
+                    self.distilled_agent.critic_optimizer.zero_grad()
+
+                    target = all_critic_logits[j].detach()
+                    student = distilled_critic_logits[j]
+                    loss = MSELoss(student, target)
+                    loss.backward()
+
+                    torch.nn.utils.clip_grad_norm_(
+                        self.distilled_agent.critic.parameters(), 0.5)
+                    self.distilled_agent.critic_optimizer.step()
+
+        # Update student parameters
+        for a in self.agents:
+            if hard:
+                if not pass_actor:
+                    a.policy.load_state_dict(
+                        self.distilled_agent.policy.state_dict())
+                    a.target_policy.load_state_dict(a.policy.state_dict())
+
+                if not pass_critic:
+                    a.critic.load_state_dict(
+                        self.distilled_agent.critic.state_dict())
+                    a.target_critic.load_state_dict(a.critic.state_dict())
+
+    def distill2(self, num_distill, batch_size, replay_buffer1, replay_buffer2, hard=False, pass_actor=False, pass_critic=False, temperature=0.01, tau=0.01):
+        if pass_actor and pass_critic:
+            return 0
+
+        # Repeat multiple times
+        for i in range(num_distill):
+
+            if (i % (int(num_distill/20.))) == 0:
+                print("{}%".format(int(100*(i+1)/num_distill)))
+
+            for j, agent in enumerate(self.agents):
+
+                if j == 0:
+                    replay_buffer = replay_buffer1
+                elif j == 1:
+                    replay_buffer = replay_buffer2
+                else:
+                    raise ValueError()
+
+                # Get samples
+                sample = replay_buffer.sample(batch_size, to_gpu=False)
+                obs, acs, _, _, _ = sample
+
+                # Find actor outputs for each agent + distilled
+                all_actor_logits = []
+                distilled_actor_logits = []
+                for pi, ob in zip(self.policies, obs):
+                    all_actor_logits.append(pi(ob))
+                    distilled_actor_logits.append(self.distilled_agent.policy(ob))
+
+                # Find critic outputs for each agent + distilled
+                # Mix input to critic by shuffling
+                all_critic_logits = []
+                distilled_critic_logits = []
+                for p, crit in enumerate(self.critics):
+                    vf_in = torch.cat((*obs, *acs), dim=1)
+
+                    dist_vf_in = list(zip(obs, acs))
+                    np.random.shuffle(dist_vf_in)
+                    dist_obs, dist_acs = zip(*dist_vf_in)
+
+                    vf_in_distilled = torch.cat((*dist_obs, *dist_acs), dim=1)
+                    all_critic_logits.append(crit(vf_in))
+                    distilled_critic_logits.append(
+                        self.distilled_agent.critic(vf_in_distilled))
+
+
+                if not pass_actor:
+                    # Distill agent
+                    self.distilled_agent.policy_optimizer.zero_grad()
+
+                    with torch.no_grad():
+                        target = F.softmax(all_actor_logits[j], dim=1)
+                    student = F.log_softmax(distilled_actor_logits[j], dim=1)
+                    loss = KLLoss(student, target) / batch_size
+                    loss = loss.sum()
+                    loss.backward()
+
+                    torch.nn.utils.clip_grad_norm_(
+                        self.distilled_agent.policy.parameters(), 0.5)
+                    self.distilled_agent.policy_optimizer.step()
+
+                if not pass_critic:
+                    # Distill critic
+                    self.distilled_agent.critic_optimizer.zero_grad()
+
+                    target = all_critic_logits[j].detach()
+                    student = distilled_critic_logits[j]
+                    loss = MSELoss(student, target)
+                    loss.backward()
+
+                    torch.nn.utils.clip_grad_norm_(
+                        self.distilled_agent.critic.parameters(), 0.5)
+                    self.distilled_agent.critic_optimizer.step()
+
+        # Update student parameters
+        for a in self.agents:
+            if hard:
+                if not pass_actor:
+                    a.policy.load_state_dict(
+                        self.distilled_agent.policy.state_dict())
+                    a.target_policy.load_state_dict(a.policy.state_dict())
+
+                if not pass_critic:
+                    a.critic.load_state_dict(
+                        self.distilled_agent.critic.state_dict())
+                    a.target_critic.load_state_dict(a.critic.state_dict())
+
+    def prep_training(self, device='gpu'):
+        for a in self.agents:
+            a.policy.train()
+            a.critic.train()
+            a.target_policy.train()
+            a.target_critic.train()
+        self.distilled_agent.policy.train()
+        self.distilled_agent.critic.train()
+        self.distilled_agent.target_policy.train()
+        self.distilled_agent.target_critic.train()
+        if device == 'gpu':
+            fn = lambda x: x.cuda()
+        else:
+            fn = lambda x: x.cpu()
+        if not self.pol_dev == device:
+            for a in self.agents:
+                a.policy = fn(a.policy)
+            self.distilled_agent.policy = fn(self.distilled_agent.policy)
+            self.pol_dev = device
+        if not self.critic_dev == device:
+            for a in self.agents:
+                a.critic = fn(a.critic)
+            self.distilled_agent.critic = fn(self.distilled_agent.critic)
+            self.critic_dev = device
+        if not self.trgt_pol_dev == device:
+            for a in self.agents:
+                a.target_policy = fn(a.target_policy)
+            self.distilled_agent.target_policy = fn(
+                self.distilled_agent.target_policy)
+            self.trgt_pol_dev = device
+        if not self.trgt_critic_dev == device:
+            for a in self.agents:
+                a.target_critic = fn(a.target_critic)
+            self.distilled_agent.target_critic = fn(
+                self.distilled_agent.target_critic)
+            self.trgt_critic_dev = device
+
+    def prep_rollouts(self, device='cpu'):
+        for a in self.agents:
+            a.policy.eval()
+        self.distilled_agent.policy.eval()
+        if device == 'gpu':
+            fn = lambda x: x.cuda()
+        else:
+            fn = lambda x: x.cpu()
+        # only need main policy for rollouts
+        if not self.pol_dev == device:
+            for a in self.agents:
+                a.policy = fn(a.policy)
+            self.distilled_agent.policy = fn(self.distilled_agent.policy)
+            self.pol_dev = device
+
+    def save(self, filename):
+        """
+        Save trained parameters of all agents into one file
+        """
+        self.prep_training(
+            device='cpu')  # move parameters to CPU before saving
+        save_dict = {'init_dict': self.init_dict,
+                     'agent_params': [a.get_params() for a in self.agents]}
+        torch.save(save_dict, filename)
+
+    @classmethod
+    def init_from_env(cls, env, agent_alg="MADDPG", adversary_alg="MADDPG",
+                      gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64):
+        """
+        Instantiate instance of this class from multi-agent environment
+        """
+        agent_init_params = []
+        alg_types = [adversary_alg if atype == 'adversary' else agent_alg for
+                     atype in env.agent_types]
+        for acsp, obsp, algtype in zip(env.action_space, env.observation_space,
+                                       alg_types):
+            num_in_pol = obsp.shape[0]
+            if isinstance(acsp, Box):
+                discrete_action = False
+                get_shape = lambda x: x.shape[0]
+            else:  # Discrete
+                discrete_action = True
+                get_shape = lambda x: x.n
+            num_out_pol = get_shape(acsp)
+            if algtype == "MADDPG":
+                num_in_critic = 0
+                for oobsp in env.observation_space:
+                    num_in_critic += oobsp.shape[0]
+                for oacsp in env.action_space:
+                    num_in_critic += get_shape(oacsp)
+            else:
+                num_in_critic = obsp.shape[0] + get_shape(acsp)
+            agent_init_params.append({'num_in_pol': num_in_pol,
+                                      'num_out_pol': num_out_pol,
+                                      'num_in_critic': num_in_critic})
+        init_dict = {'gamma': gamma, 'tau': tau, 'lr': lr,
+                     'hidden_dim': hidden_dim,
+                     'alg_types': alg_types,
+                     'agent_init_params': agent_init_params,
+                     'discrete_action': discrete_action}
+        instance = cls(**init_dict)
+        instance.init_dict = init_dict
+        return instance
+
+    @classmethod
+    def init_from_save(cls, filename):
+        """
+        Instantiate instance of this class from file created by 'save' method
+        """
+        save_dict = torch.load(filename)
+        instance = cls(**save_dict['init_dict'])
+        instance.init_dict = save_dict['init_dict']
+        for a, params in zip(instance.agents, save_dict['agent_params']):
+            a.load_params(params)
+        return instance
+    @classmethod
+    def init_from_save2(cls, filename1, filename2):
+        """
+        Instantiate instance of this class from file created by 'save' method
+        """
+        save_dict = torch.load(filename1)
+        instance = cls(**save_dict['init_dict'])
+        instance.init_dict = save_dict['init_dict']
+        for a, params in zip(instance.agents, save_dict['agent_params']):
+            a.load_params(params)
+
+        save_dict2 = torch.load(filename2)
+        for (i, (a, params)) in enumerate(zip(instance.agents, save_dict2['agent_params'])):
+            if i == 1:
+                a.load_params(params)
+        return instance

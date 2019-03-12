@@ -44,36 +44,29 @@ def run(config):
         gif_path.mkdir(exist_ok=True)
         ifi = 1 / 30.
 
-    torch.manual_seed(config.seed)
-    np.random.seed(config.seed)
     if not USE_CUDA:
         torch.set_num_threads(config.n_training_threads)
     env = make_parallel_env(config.env_id, config.n_rollout_threads, config.seed,
                             config.discrete_action)
     maddpg = MADDPG.init_from_save(str(model_file))
     t = 0
-    flip = False
 
+    if config.distill:
+        print("************Distilling***********")
+
+        maddpg.prep_rollouts(device='cpu')
+        with open(str(run_dir / "replay_buffer.pkl"), 'rb') as input:
+            distill_replay_buffer = pickle.load(input)
+        maddpg.distill(config.num_distills, 1024, distill_replay_buffer, hard=True,
+                       pass_actor=config.distill_pass_actor, pass_critic=config.distill_pass_critic)
+    
+    torch.manual_seed(config.seed)
+    np.random.seed(config.seed)
 
     print("********Starting training********")
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
 
-        if (ep_i) == config.hard_distill_ep:
-            print("************Distilling***********")
-
-            maddpg.prep_rollouts(device='cpu')
-            with open(str(run_dir / "replay_buffer.pkl"), 'rb') as input:
-                distill_replay_buffer = pickle.load(input)
-            maddpg.distill(config.num_distills, 1024, distill_replay_buffer, hard=True,
-                           pass_actor=config.distill_pass_actor, pass_critic=config.distill_pass_critic)
-
-        # Flip environment
-        if ep_i == config.flip_ep:
-            print("********Flipping********")
-            # Reset replay buffer
-            flip = True
-
-        obs = env.reset(flip=flip)
+        obs = env.reset(flip=config.flip)
         maddpg.prep_rollouts(device='cpu')
 
         maddpg.scale_noise(0)
@@ -110,12 +103,9 @@ def run(config):
             obs = next_obs
             t += config.n_rollout_threads
 
-
-
     if config.save_gif:
+        print("************Saving***********")
         frames = np.array(frames)
-        while (gif_path / ('{}.gif'.format(config.gif_name))).exists():
-            gif_num += 1
         imageio.mimsave(str(gif_path / ('{}.gif'.format(config.gif_name))),
                         frames, duration=ifi)
 
@@ -145,17 +135,17 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size",
                         default=1024, type=int,
                         help="Batch size for model training")
-    parser.add_argument("--flip_ep",
-                        default=10, type=int,
-                        help="Episode at which to flip")
+    parser.add_argument("--flip",
+                        default=False, action='store_true',
+                        help="flip")
     parser.add_argument("--eval_ep",
                         default=999999, type=int,
                         help="Episode at which to start evaluating")
-    parser.add_argument("--hard_distill_ep",
-                        default=999, type=int,
-                        help="Episode at which to hard distill")
+    parser.add_argument("--distill",
+                        action="store_true", default=False,
+                        help="Distill")
     parser.add_argument("--num_distills",
-                        default=1024, type=int,
+                        default=2048, type=int,
                         help="Number of times to distill")
     parser.add_argument("--distill_pass_actor",
                         action="store_true",
