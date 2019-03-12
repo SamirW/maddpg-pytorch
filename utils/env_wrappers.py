@@ -111,7 +111,7 @@ class DummyVecEnv(VecEnv):
         self.actions = actions
 
     def step_wait(self):
-        results = [env._step(a) for (a,env) in zip(self.actions, self.envs)]
+        results = [env.step(a) for (a,env) in zip(self.actions, self.envs)]
         obs, rews, dones, infos = map(np.array, zip(*results))
         self.ts += 1
         for (i, done) in enumerate(dones):
@@ -122,11 +122,11 @@ class DummyVecEnv(VecEnv):
         return np.array(obs), np.array(rews), np.array(dones), infos
 
     def reset(self, flip=False):        
-        results = [env._reset(flip=flip) for env in self.envs]
+        results = [env.reset() for env in self.envs]
         return np.array(results)
 
     def render(self, mode='human'): 
-        return [env._render(mode=mode) for env in self.envs]
+        return [env.render(mode=mode) for env in self.envs]
 
     def close(self):
         return
