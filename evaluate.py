@@ -67,10 +67,13 @@ def run(config):
     for ep_i in range(0, config.n_episodes, config.n_rollout_threads):
 
         obs = env.reset(flip=config.flip)
+        start_time = time.time()
         maddpg.prep_rollouts(device='cpu')
 
         maddpg.scale_noise(0)
         maddpg.reset_noise()
+
+        render_counter = 0
 
         if config.save_gif:
             frames.append(env.render('rgb_array')[0][0])
@@ -94,14 +97,22 @@ def run(config):
             if et_i == (config.episode_length - 1):
                 dones = dones + 1
 
-            time.sleep(0.015)
-            env.render()
+            if render_counter % 5 == 0:
+                env.render()
 
             if config.save_gif:
                 frames.append(env.render('rgb_array')[0][0])
 
             obs = next_obs
+            next_time = start_time + 0.01
+            tosleep = next_time - time.time()
+            if tosleep > 0:
+                time.sleep(tosleep)
+            print(time.time() - start_time)
+            start_time += 0.01
+            
             t += config.n_rollout_threads
+            render_counter += 1
 
     if config.save_gif:
         print("************Saving***********")
