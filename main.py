@@ -237,9 +237,9 @@ if __name__ == '__main__':
     parser.add_argument("--adversary_alg",
                         default="MADDPG", type=str,
                         choices=['MADDPG', 'DDPG'])
-    parser.add_argument("--discrete_action",
+    parser.add_argument("--continuous_action",
                         action='store_true',
-                        default=True)
+                        default=False)
     parser.add_argument("--save_buffer",
                         action="store_true",
                         default=False)
@@ -249,5 +249,6 @@ if __name__ == '__main__':
     config.log_name = \
         "env::%s_seed::%s_comment::%s_log" % (
             config.env_id, str(config.seed), config.log_comment)
+    config.discrete_action = not config.continuous_action
 
     run(config)
