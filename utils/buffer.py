@@ -3,10 +3,12 @@ from torch import Tensor
 from torch.autograd import Variable
 from scipy.spatial.distance import pdist, squareform
 
+
 class ReplayBuffer(object):
     """
     Replay Buffer for multi-agent RL with parallel rollouts
     """
+
     def __init__(self, max_steps, num_agents, obs_dims, ac_dims):
         """
         Inputs:
@@ -30,8 +32,8 @@ class ReplayBuffer(object):
             self.next_obs_buffs.append(np.zeros((max_steps, odim)))
             self.done_buffs.append(np.zeros(max_steps))
 
-
-        self.filled_i = 0  # index of first empty location in buffer (last index when full)
+        # index of first empty location in buffer (last index when full)
+        self.filled_i = 0
         self.curr_i = 0  # current index to write to (ovewrite oldest data)
 
         self.obs_numpy = None
@@ -39,7 +41,6 @@ class ReplayBuffer(object):
 
     def __len__(self):
         return self.filled_i
-
 
     def reset(self):
         for i in range(len(self.obs_buffs)):
@@ -53,9 +54,10 @@ class ReplayBuffer(object):
         self.curr_i = 0
 
     def push(self, observations, actions, rewards, next_observations, dones):
-        nentries = observations.shape[0]  # handle multiple parallel environments
+        # handle multiple parallel environments
+        nentries = observations.shape[0]
         if self.curr_i + nentries > self.max_steps:
-            rollover = self.max_steps - self.curr_i # num of indices to roll over
+            rollover = self.max_steps - self.curr_i  # num of indices to roll over
             for agent_i in range(self.num_agents):
                 self.obs_buffs[agent_i] = np.roll(self.obs_buffs[agent_i],
                                                   rollover, axis=0)
@@ -72,12 +74,16 @@ class ReplayBuffer(object):
         for agent_i in range(self.num_agents):
             self.obs_buffs[agent_i][self.curr_i:self.curr_i + nentries] = np.vstack(
                 observations[:, agent_i])
-            # actions are already batched by agent, so they are indexed differently
-            self.ac_buffs[agent_i][self.curr_i:self.curr_i + nentries] = actions[agent_i]
-            self.rew_buffs[agent_i][self.curr_i:self.curr_i + nentries] = rewards[:, agent_i]
+            # actions are already batched by agent, so they are indexed
+            # differently
+            self.ac_buffs[agent_i][
+                self.curr_i:self.curr_i + nentries] = actions[agent_i]
+            self.rew_buffs[agent_i][
+                self.curr_i:self.curr_i + nentries] = rewards[:, agent_i]
             self.next_obs_buffs[agent_i][self.curr_i:self.curr_i + nentries] = np.vstack(
                 next_observations[:, agent_i])
-            self.done_buffs[agent_i][self.curr_i:self.curr_i + nentries] = dones[:, agent_i]
+            self.done_buffs[agent_i][
+                self.curr_i:self.curr_i + nentries] = dones[:, agent_i]
         self.curr_i += nentries
         if self.filled_i < self.max_steps:
             self.filled_i += nentries
@@ -92,21 +98,29 @@ class ReplayBuffer(object):
         else:
             cast = lambda x: Variable(Tensor(x), requires_grad=False)
         if norm_rews:
-            ret_rews = [cast((self.rew_buffs[i][inds] -
-                              self.rew_buffs[i][:self.filled_i].mean()) /
-                             self.rew_buffs[i][:self.filled_i].std())
-                        for i in range(self.num_agents)]
+            if self.rew_buffs[0][:self.filled_i].std() == 0:
+                ret_rews = [cast((self.rew_buffs[i][inds] -
+                                  self.rew_buffs[i][:self.filled_i].mean()))
+                            for i in range(self.num_agents)]
+            else:
+                ret_rews = [cast((self.rew_buffs[i][inds] -
+                                  self.rew_buffs[i][:self.filled_i].mean()) /
+                                 self.rew_buffs[i][:self.filled_i].std())
+                            for i in range(self.num_agents)]
         else:
-            ret_rews = [cast(self.rew_buffs[i][inds]) for i in range(self.num_agents)]
+            ret_rews = [cast(self.rew_buffs[i][inds])
+                        for i in range(self.num_agents)]
         return ([cast(self.obs_buffs[i][inds]) for i in range(self.num_agents)],
                 [cast(self.ac_buffs[i][inds]) for i in range(self.num_agents)],
                 ret_rews,
-                [cast(self.next_obs_buffs[i][inds]) for i in range(self.num_agents)],
+                [cast(self.next_obs_buffs[i][inds])
+                 for i in range(self.num_agents)],
                 [cast(self.done_buffs[i][inds]) for i in range(self.num_agents)])
 
     def get_average_rewards(self, N):
         if self.filled_i == self.max_steps:
-            inds = np.arange(self.curr_i - N, self.curr_i)  # allow for negative indexing
+            # allow for negative indexing
+            inds = np.arange(self.curr_i - N, self.curr_i)
         else:
             inds = np.arange(max(0, self.curr_i - N), self.curr_i)
         return [self.rew_buffs[i][inds].mean() for i in range(self.num_agents)]
@@ -119,7 +133,7 @@ class ReplayBuffer(object):
         assert self.obs_numpy.shape[2] == samples.shape[1]
         inds = np.random.choice(np.arange(self.filled_i), size=5000,
                                 replace=False)
-        data = self.obs_numpy[agent_index][inds]       
+        data = self.obs_numpy[agent_index][inds]
 
         data_tiled = np.tile(data, (samples.shape[0], 1, 1))
         diffs = data_tiled - samples[:, None]
@@ -128,5 +142,5 @@ class ReplayBuffer(object):
         h = np.median(dists_sq, axis=1)
         h = np.sqrt(0.5 * h[:, None] / np.log(data.shape[0] + 1))
 
-        kernels = np.exp(-1*dists_sq / h**2 / 2)
+        kernels = np.exp(-1 * dists_sq / h**2 / 2)
         return Tensor(np.mean(kernels, axis=1))
