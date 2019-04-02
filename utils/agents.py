@@ -74,7 +74,10 @@ class DDPGAgent(object):
         action = self.policy(obs)
         if self.discrete_action:
             if explore:
-                action = gumbel_softmax(action, hard=True)
+                if self.exploration > 0.05:
+                    action = onehot_from_logits(action, eps=self.exploration)
+                else:
+                    action = gumbel_softmax(action, hard=True)
             else:
                 # with torch.no_grad():
                 #     entropy = Categorical(logits=action).entropy()
