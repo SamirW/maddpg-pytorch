@@ -1,6 +1,7 @@
 # Shariq added
 # models/
 *.pkl
+*.gif
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
