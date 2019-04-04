@@ -121,8 +121,8 @@ class DummyVecEnv(VecEnv):
         self.actions = None
         return np.array(obs), np.array(rews), np.array(dones), infos
 
-    def reset(self, flip=False):        
-        results = [env._reset() for env in self.envs]
+    def reset(self, flip=False, start_poses=None, goal_poses=None):        
+        results = [env._reset(start_poses=start_poses, goal_poses=goal_poses) for env in self.envs]
         return np.array(results)
 
     def render(self, mode='human'): 
