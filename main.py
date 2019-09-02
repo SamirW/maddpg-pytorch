@@ -58,7 +58,8 @@ def run(config):
                                   adversary_alg=config.adversary_alg,
                                   tau=config.tau,
                                   lr=config.lr,
-                                  hidden_dim=config.hidden_dim)
+                                  hidden_dim=config.hidden_dim,
+                                  single=config.single)
     replay_buffer = ReplayBuffer(config.buffer_length, maddpg.nagents,
                                  [obsp.shape[0]
                                      for obsp in env.observation_space],
@@ -241,6 +242,9 @@ if __name__ == '__main__':
                         action='store_true',
                         default=True)
     parser.add_argument("--save_buffer",
+                        action="store_true",
+                        default=False)
+    parser.add_argument("--single",
                         action="store_true",
                         default=False)
 

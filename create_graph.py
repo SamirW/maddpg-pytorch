@@ -8,18 +8,18 @@ plt.rc('font', family='serif')
 params = {'legend.fontsize': 12}
 plot.rcParams.update(params)
 
-ENV = "simple_spread_flip_4"
-RUN = "eval_graph_relative"
-BASE_DIR = "/home/samir/maddpg-pytorch/models/" + ENV + "/" + RUN "/"
-FIGURE_TITLE = "4-Agent Distillation (Relative Obs)"
-FIGURE_DIR = "figures/relative_obs/"
-FIGURE_SAVE_NAME = ""
+ENV = "simple_spread_4"
+RUN = "test"
+BASE_DIR = "/home/samir/dev/acl/maddpg-pytorch-sharing/models/" + ENV + "/" + RUN + "/"
+FIGURE_TITLE = "4-Agent Simple Spread"
+FIGURE_DIR = "figures/mixed/"
+FIGURE_SAVE_NAME = "4_agent_simple_spread.png"
 
 CONV_SIZE = 50
-NUM_SEEDS = 11
+NUM_SEEDS = 3
 
-SHOW = True
-SAVE = False
+SHOW = False
+SAVE = True
 
 def moving_average(data_set, periods=10):
     weights = np.ones(periods) / periods
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     """
         Distilled
     """
-    if True:
+    if False:
         distill_data = []
         distill_data_ep = []
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     """
         Distill Eval
     """
-    if True: 
+    if False: 
         distill_eval = []
         distill_eval_ep = []
 
@@ -104,6 +104,57 @@ if __name__ == "__main__":
         datas.append(distill_eval)
         datas_x.append(distill_eval_ep)
         legends.append(r'Distill All')
+
+    """
+        Normal
+    """
+    if True: 
+        distill_eval = []
+        distill_eval_ep = []
+
+        for i in range(NUM_SEEDS):
+            path = \
+                BASE_DIR + \
+                "env::{}_seed::{}_comment::maddpg_log".format(ENV, i+1)
+        
+            try:
+                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+
+                distill_eval.append(data[:10000])
+                distill_eval_ep.append(data_x[:10000])
+            except:
+                continue
+
+        datas.append(distill_eval)
+        datas_x.append(distill_eval_ep)
+        legends.append(r'MADDPG')
+
+    """
+        Single
+    """
+    if True: 
+        distill_eval = []
+        distill_eval_ep = []
+
+        for i in range(NUM_SEEDS):
+            path = \
+                BASE_DIR + \
+                "env::{}_seed::{}_comment::single_log".format(ENV, i+1)
+        
+            try:
+                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+
+                distill_eval.append(data[:10000])
+                distill_eval_ep.append(data_x[:10000])
+            except:
+                continue
+
+        datas.append(distill_eval)
+        datas_x.append(distill_eval_ep)
+        legends.append(r'Mixed Central')
+
 
     """
         Distill Pass Actor
@@ -158,6 +209,9 @@ if __name__ == "__main__":
     """
         Plot data
     """
+
+    assert len(datas[0]) != 0, "No data found"
+
     fig, ax = plt.subplots()
     sns.set_style("ticks")
     for i_data, data in enumerate(datas):

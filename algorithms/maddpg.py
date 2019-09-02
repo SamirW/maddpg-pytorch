@@ -21,7 +21,7 @@ class MADDPG(object):
 
     def __init__(self, agent_init_params, alg_types,
                  gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64,
-                 discrete_action=False):
+                 discrete_action=False, single=False):
         """
         Inputs:
             agent_init_params (list of dict): List of dicts with parameters to
@@ -37,14 +37,18 @@ class MADDPG(object):
             hidden_dim (int): Number of hidden dimensions for networks
             discrete_action (bool): Whether or not to use discrete action space
         """
+        if single:
+            lr = lr/float(len(alg_types))
+
+        self.single = single
         self.nagents = len(alg_types)
         self.alg_types = alg_types
         self.agents = [DDPGAgent(lr=lr, discrete_action=discrete_action,
-                                 hidden_dim=hidden_dim,
+                                 hidden_dim=hidden_dim, i=i, single=single,
                                  **params)
-                       for params in agent_init_params]
+                       for i, params in enumerate(agent_init_params)]
         self.distilled_agent = DDPGAgent(lr=lr, discrete_action=discrete_action,
-                                         hidden_dim=hidden_dim,
+                                         hidden_dim=hidden_dim, i=-1, single=single,
                                          **agent_init_params[0])
         self.agent_init_params = agent_init_params
         self.gamma = gamma
@@ -57,13 +61,19 @@ class MADDPG(object):
         self.trgt_critic_dev = 'cpu'  # device for target critics
         self.niter = 0
 
-    @property
+    @property    
     def policies(self):
-        return [a.policy for a in self.agents]
+        if self.single:
+            return [self.agents[0].policy] * self.nagents
+        else:
+            return [a.policy for a in self.agents]
 
-    @property
+    @property    
     def target_policies(self):
-        return [a.target_policy for a in self.agents]
+        if self.single:
+            return [self.agents[0].target_policy] * self.nagents
+        else:
+            return [a.target_policy for a in self.agents]
 
     @property
     def critics(self):
@@ -91,7 +101,12 @@ class MADDPG(object):
         Outputs:
             actions: List of actions for each agent
         """
-        return [a.step(obs, explore=explore) for a, obs in zip(self.agents,
+        if self.single:
+            agents = [self.agents[0]] * self.nagents
+        else:
+            agents = self.agents
+
+        return [a.step(obs, explore=explore) for a, obs in zip(agents,
                                                                observations)]
 
     def action_logits(self, observations):
@@ -125,7 +140,10 @@ class MADDPG(object):
                 If passed in, important quantities will be logged
         """
         obs, acs, rews, next_obs, dones = sample
-        curr_agent = self.agents[agent_i]
+        if self.single:
+            curr_agent = self.agents[0]
+        else:
+            curr_agent = self.agents[agent_i]
 
         curr_agent.critic_optimizer.zero_grad()
         if self.alg_types[agent_i] == 'MADDPG':
@@ -364,7 +382,7 @@ class MADDPG(object):
 
     @classmethod
     def init_from_env(cls, env, agent_alg="MADDPG", adversary_alg="MADDPG",
-                      gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64):
+                      gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64, single=False):
         """
         Instantiate instance of this class from multi-agent environment
         """
@@ -396,7 +414,8 @@ class MADDPG(object):
                      'hidden_dim': hidden_dim,
                      'alg_types': alg_types,
                      'agent_init_params': agent_init_params,
-                     'discrete_action': discrete_action}
+                     'discrete_action': discrete_action,
+                     'single': single}
         instance = cls(**init_dict)
         instance.init_dict = init_dict
         return instance

@@ -13,32 +13,36 @@ class DDPGAgent(object):
     General class for DDPG agents (policy, critic, target policy, target
     critic, exploration noise)
     """
-    def __init__(self, num_in_pol, num_out_pol, num_in_critic, hidden_dim=64,
-                 lr=0.01, discrete_action=True):
+    def __init__(self, num_in_pol, num_out_pol, num_in_critic, i, hidden_dim=64,
+                 lr=0.01, discrete_action=True, single=False):
         """
         Inputs:
             num_in_pol (int): number of dimensions for policy input
             num_out_pol (int): number of dimensions for policy output
             num_in_critic (int): number of dimensions for critic input
         """
+        self.i = i
         self.policy = MLPNetwork(num_in_pol, num_out_pol,
                                  hidden_dim=hidden_dim,
                                  constrain_out=True,
                                  discrete_action=discrete_action)
         self.critic = MLPNetwork(num_in_critic, 1,
                                  hidden_dim=hidden_dim,
-                                 constrain_out=False)
+                                 constrain_out=False, test=True)
         self.target_policy = MLPNetwork(num_in_pol, num_out_pol,
                                         hidden_dim=hidden_dim,
                                         constrain_out=True,
                                         discrete_action=discrete_action)
         self.target_critic = MLPNetwork(num_in_critic, 1,
                                         hidden_dim=hidden_dim,
-                                        constrain_out=False)
+                                        constrain_out=False, test=True)
         hard_update(self.target_policy, self.policy)
         hard_update(self.target_critic, self.critic)
         self.policy_optimizer = Adam(self.policy.parameters(), lr=lr)
-        self.critic_optimizer = Adam(self.critic.parameters(), lr=lr)
+        if single:
+            self.critic_optimizer = Adam(self.critic.parameters(), lr=lr*10)
+        else:
+            self.critic_optimizer = Adam(self.critic.parameters(), lr=lr)
         if not discrete_action:
             self.exploration = OUNoise(num_out_pol)
         else:

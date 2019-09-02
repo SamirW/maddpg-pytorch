@@ -122,11 +122,11 @@ class DummyVecEnv(VecEnv):
         return np.array(obs), np.array(rews), np.array(dones), infos
 
     def reset(self, flip=False):        
-        results = [env._reset(flip=flip) for env in self.envs]
+        results = [env._reset() for env in self.envs]
         return np.array(results)
 
     def render(self):
-        [env._render() for env in self.envs]
+        return [env._render() for env in self.envs]
 
     def close(self):
         return
