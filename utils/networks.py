@@ -120,3 +120,50 @@ class SimpleMLPNetwork(nn.Module):
         nn.init.xavier_uniform_(self.fc1.weight)
         nn.init.xavier_uniform_(self.fc2.weight)
         nn.init.xavier_uniform_(self.fc3.weight)
+
+class DeepSetMLPNetwork(nn.Module):
+    """
+    MLP network (can be used as value or policy)
+    """
+    def __init__(self, input_dim, out_dim, hidden_dim=64, nonlin=F.relu,
+                 constrain_out=False, norm_in=False, discrete_action=True):
+        """
+        Inputs:
+            input_dim (int): Number of dimensions in input
+            out_dim (int): Number of dimensions in output
+            hidden_dim (int): Number of hidden dimensions
+            nonlin (PyTorch function): Nonlinearity to apply to hidden layers
+        """
+        super(DeepSetMLPNetwork, self).__init__()
+        if norm_in:  # normalize inputs
+            self.in_fn = nn.BatchNorm1d(input_dim)
+            self.in_fn.weight.data.fill_(1)
+            self.in_fn.bias.data.fill_(0)
+        else:
+            self.in_fn = lambda x: x
+
+        self.fc1 = nn.Linear(input_dim, input_dim+1)
+        self.fc2 = nn.Linear(input_dim+1, input_dim+1)
+        self.fc3 = nn.Linear(input_dim+1, hidden_dim)
+        self.fc4 = nn.Linear(hidden_dim, out_dim)
+        self.nonlin = nonlin
+        if constrain_out and not discrete_action:
+            # initialize small to prevent saturation
+            self.fc4.weight.data.uniform_(-3e-3, 3e-3)
+            self.out_fn = F.tanh
+        else:  # logits for discrete action (will softmax later)
+            self.out_fn = lambda x: x
+
+    def forward(self, x):
+        """
+        Inputs:
+            x (PyTorch Matrix): Batch of observations
+        Outputs:
+            out (PyTorch Matrix): Output of network (actions, values, etc)
+        """
+        x = self.nonlin(self.fc1(self.in_fn(x)))
+        x = self.nonlin(self.fc2(x))
+        x = torch.sum(x, dim=0, keepdim=True)
+        x = self.nonlin(self.fc3(x))
+        x = self.out_fn(self.fc4(x))
+        return x

@@ -8,7 +8,7 @@ from torch.autograd import Variable
 from gym.spaces import Box, Discrete
 from utils.networks import MLPNetwork
 from utils.misc import soft_update, hard_update, average_gradients, onehot_from_logits, gumbel_softmax, batch_gumbel_softmax
-from utils.agents import DDPGAgent
+from utils.agents import DDPGAgent, DeepDDPGAgent
 
 MSELoss = torch.nn.MSELoss()
 KLLoss = torch.nn.KLDivLoss(size_average=False, reduce=False)
@@ -21,7 +21,7 @@ class MADDPG(object):
 
     def __init__(self, agent_init_params, alg_types,
                  gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64,
-                 discrete_action=False, single=False):
+                 discrete_action=False, deep=False):
         """
         Inputs:
             agent_init_params (list of dict): List of dicts with parameters to
@@ -37,18 +37,21 @@ class MADDPG(object):
             hidden_dim (int): Number of hidden dimensions for networks
             discrete_action (bool): Whether or not to use discrete action space
         """
-        if single:
-            lr = lr/float(len(alg_types))
-
-        self.single = single
+        self.deep = deep
         self.nagents = len(alg_types)
         self.alg_types = alg_types
-        self.agents = [DDPGAgent(lr=lr, discrete_action=discrete_action,
-                                 hidden_dim=hidden_dim, i=i, single=single,
+        if deep:
+            self.agents = [DeepDDPGAgent(lr=lr, discrete_action=discrete_action,
+                                 hidden_dim=hidden_dim, i=i,
+                                 **params)
+                       for i, params in enumerate(agent_init_params)]
+        else:
+            self.agents = [DDPGAgent(lr=lr, discrete_action=discrete_action,
+                                 hidden_dim=hidden_dim, i=i,
                                  **params)
                        for i, params in enumerate(agent_init_params)]
         self.distilled_agent = DDPGAgent(lr=lr, discrete_action=discrete_action,
-                                         hidden_dim=hidden_dim, i=-1, single=single,
+                                         hidden_dim=hidden_dim, i=-1,
                                          **agent_init_params[0])
         self.agent_init_params = agent_init_params
         self.gamma = gamma
@@ -63,17 +66,11 @@ class MADDPG(object):
 
     @property    
     def policies(self):
-        if self.single:
-            return [self.agents[0].policy] * self.nagents
-        else:
-            return [a.policy for a in self.agents]
+        return [a.policy for a in self.agents]
 
     @property    
     def target_policies(self):
-        if self.single:
-            return [self.agents[0].target_policy] * self.nagents
-        else:
-            return [a.target_policy for a in self.agents]
+        return [a.target_policy for a in self.agents]
 
     @property
     def critics(self):
@@ -101,11 +98,7 @@ class MADDPG(object):
         Outputs:
             actions: List of actions for each agent
         """
-        if self.single:
-            agents = [self.agents[0]] * self.nagents
-        else:
-            agents = self.agents
-
+        agents = [self.agents[0]] * self.nagents
         return [a.step(obs, explore=explore) for a, obs in zip(agents,
                                                                observations)]
 
@@ -140,10 +133,7 @@ class MADDPG(object):
                 If passed in, important quantities will be logged
         """
         obs, acs, rews, next_obs, dones = sample
-        if self.single:
-            curr_agent = self.agents[0]
-        else:
-            curr_agent = self.agents[agent_i]
+        curr_agent = self.agents[agent_i]
 
         curr_agent.critic_optimizer.zero_grad()
         if self.alg_types[agent_i] == 'MADDPG':
@@ -154,7 +144,10 @@ class MADDPG(object):
                 all_trgt_acs = [pi(nobs) for pi, nobs in zip(self.target_policies,
                                                              next_obs)]
 
-            trgt_vf_in = torch.cat((*next_obs, *all_trgt_acs), dim=1)
+            if self.deep:
+                trgt_vf_in = torch.cat((torch.stack(next_obs), torch.stack(all_trgt_acs)), dim=2)
+            else:
+                trgt_vf_in = torch.cat((*next_obs, *all_trgt_acs), dim=1)
         else:  # DDPG
             if self.discrete_action:
                 trgt_vf_in = torch.cat((next_obs[agent_i],
@@ -171,7 +164,10 @@ class MADDPG(object):
                         (1 - dones[agent_i].view(-1, 1)))
 
         if self.alg_types[agent_i] == 'MADDPG':
-            vf_in = torch.cat((*obs, *acs), dim=1)
+            if self.deep:
+                vf_in = torch.cat((torch.stack(obs), torch.stack(acs)), dim=2)
+            else:
+                vf_in = torch.cat((*obs, *acs), dim=1)
         else:  # DDPG
             vf_in = torch.cat((obs[agent_i], acs[agent_i]), dim=1)
 
@@ -208,8 +204,10 @@ class MADDPG(object):
                         all_pol_acs.append(onehot_from_logits(pi(ob)))
                     else:
                         all_pol_acs.append(pi(ob))
-
-                vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
+                if self.deep:
+                    vf_in = torch.cat((torch.stack(obs), torch.stack(all_pol_acs)), dim=2)
+                else:
+                    vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
             else:  # DDPG
                 vf_in = torch.cat((obs[agent_i], curr_pol_vf_in),
                                   dim=1)
@@ -382,7 +380,7 @@ class MADDPG(object):
 
     @classmethod
     def init_from_env(cls, env, agent_alg="MADDPG", adversary_alg="MADDPG",
-                      gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64, single=False):
+                      gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64, deep=False):
         """
         Instantiate instance of this class from multi-agent environment
         """
@@ -403,8 +401,10 @@ class MADDPG(object):
                 num_in_critic = 0
                 for oobsp in env.observation_space:
                     num_in_critic += oobsp.shape[0]
+                    if deep: break
                 for oacsp in env.action_space:
                     num_in_critic += get_shape(oacsp)
+                    if deep: break
             else:
                 num_in_critic = obsp.shape[0] + get_shape(acsp)
             agent_init_params.append({'num_in_pol': num_in_pol,
@@ -415,7 +415,7 @@ class MADDPG(object):
                      'alg_types': alg_types,
                      'agent_init_params': agent_init_params,
                      'discrete_action': discrete_action,
-                     'single': single}
+                     'deep': deep}
         instance = cls(**init_dict)
         instance.init_dict = init_dict
         return instance
