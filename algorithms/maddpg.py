@@ -21,7 +21,7 @@ class MADDPG(object):
 
     def __init__(self, agent_init_params, alg_types,
                  gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64,
-                 discrete_action=False):
+                 discrete_action=False, deepset=False):
         """
         Inputs:
             agent_init_params (list of dict): List of dicts with parameters to
@@ -37,14 +37,16 @@ class MADDPG(object):
             hidden_dim (int): Number of hidden dimensions for networks
             discrete_action (bool): Whether or not to use discrete action space
         """
+        print("MADDPG GOT DEEPSET TO BE {}".format(deepset))
+        self.deep = deepset
         self.nagents = len(alg_types)
         self.alg_types = alg_types
         self.agents = [DDPGAgent(lr=lr, discrete_action=discrete_action,
-                                 hidden_dim=hidden_dim,
+                                 hidden_dim=hidden_dim, deepset=deepset,
                                  **params)
                        for params in agent_init_params]
         self.distilled_agent = DDPGAgent(lr=lr, discrete_action=discrete_action,
-                                         hidden_dim=hidden_dim,
+                                         hidden_dim=hidden_dim, deepset=deepset,
                                          **agent_init_params[0])
         self.agent_init_params = agent_init_params
         self.gamma = gamma
@@ -136,7 +138,10 @@ class MADDPG(object):
                 all_trgt_acs = [pi(nobs) for pi, nobs in zip(self.target_policies,
                                                              next_obs)]
 
-            trgt_vf_in = torch.cat((*next_obs, *all_trgt_acs), dim=1)
+            if self.deep:
+                trgt_vf_in = torch.cat((torch.stack(next_obs), torch.stack(all_trgt_acs)), dim=2)
+            else:
+                trgt_vf_in = torch.cat((*next_obs, *all_trgt_acs), dim=1)
         else:  # DDPG
             if self.discrete_action:
                 trgt_vf_in = torch.cat((next_obs[agent_i],
@@ -153,7 +158,10 @@ class MADDPG(object):
                         (1 - dones[agent_i].view(-1, 1)))
 
         if self.alg_types[agent_i] == 'MADDPG':
-            vf_in = torch.cat((*obs, *acs), dim=1)
+            if self.deep:
+                vf_in = torch.cat((torch.stack(obs), torch.stack(acs)), dim=2)
+            else:
+                vf_in = torch.cat((*obs, *acs), dim=1)
         else:  # DDPG
             vf_in = torch.cat((obs[agent_i], acs[agent_i]), dim=1)
 
@@ -191,7 +199,10 @@ class MADDPG(object):
                     else:
                         all_pol_acs.append(pi(ob))
 
-                vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
+                if self.deep:
+                    vf_in = torch.cat((torch.stack(obs), torch.stack(all_pol_acs)), dim=2)
+                else:
+                    vf_in = torch.cat((*obs, *all_pol_acs), dim=1)
             else:  # DDPG
                 vf_in = torch.cat((obs[agent_i], curr_pol_vf_in),
                                   dim=1)
@@ -211,6 +222,52 @@ class MADDPG(object):
                                 'pol_loss': pol_loss,
                                 'vf': actual_value.mean()},
                                self.niter)
+
+        # if np.random.random() < 0.1:
+            # print("Testing")
+            # torch.set_printoptions(profile="full")
+
+            # obs = [o[:3,:] for o in obs]
+            # acs = [a[:3,:] for a in all_pol_acs]
+
+            # test_vf_in = list(zip(obs, acs))
+            # np.random.shuffle(test_vf_in)
+            # shuff_obs, shuff_acs = zip(*test_vf_in)
+
+            # vf_in = torch.cat((*obs, *acs), dim=1)
+            # vf_in_shuff = torch.cat((*shuff_obs, *shuff_acs), dim=1)
+
+            # print(vf_in.size())
+            
+            # print(vf_in)
+            # print(vf_in_shuff)
+            
+            # print(curr_agent.critic(vf_in))
+            # print(curr_agent.critic(vf_in_shuff))
+            # torch.set_printoptions(profile="default")
+
+            # print("Testing DeepSet")
+            # torch.set_printoptions(profile="full")
+
+            # obs = [o[:3,:] for o in obs]
+            # acs = [a[:3,:] for a in all_pol_acs]
+
+            # test_vf_in = list(zip(obs, acs))
+            # np.random.shuffle(test_vf_in)
+            # shuff_obs, shuff_acs = zip(*test_vf_in)
+
+            # vf_in = torch.cat((torch.stack(obs), torch.stack(acs)), dim=2)
+            # vf_in_shuff = torch.cat((torch.stack(shuff_obs), torch.stack(shuff_acs)), dim=2)
+
+            # print(vf_in.size())
+
+            # print(vf_in)
+            # print(vf_in_shuff)
+            
+            # print(curr_agent.critic(vf_in))
+            # print(curr_agent.critic(vf_in_shuff))
+            # torch.set_printoptions(profile="default")
+
 
     def update_all_targets(self):
         """
@@ -364,7 +421,7 @@ class MADDPG(object):
 
     @classmethod
     def init_from_env(cls, env, agent_alg="MADDPG", adversary_alg="MADDPG",
-                      gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64):
+                      gamma=0.95, tau=0.01, lr=0.01, hidden_dim=64, deepset=False):
         """
         Instantiate instance of this class from multi-agent environment
         """
@@ -381,7 +438,7 @@ class MADDPG(object):
                 discrete_action = True
                 get_shape = lambda x: x.n
             num_out_pol = get_shape(acsp)
-            if algtype == "MADDPG":
+            if algtype == "MADDPG" and not deepset:
                 num_in_critic = 0
                 for oobsp in env.observation_space:
                     num_in_critic += oobsp.shape[0]
@@ -396,7 +453,8 @@ class MADDPG(object):
                      'hidden_dim': hidden_dim,
                      'alg_types': alg_types,
                      'agent_init_params': agent_init_params,
-                     'discrete_action': discrete_action}
+                     'discrete_action': discrete_action,
+                     'deepset': deepset}
         instance = cls(**init_dict)
         instance.init_dict = init_dict
         return instance

@@ -4,7 +4,7 @@ from torch.autograd import Variable
 from torch.optim import Adam
 from torch.distributions import Categorical
 import numpy as np
-from .networks import MLPNetwork, SimpleMLPNetwork
+from .networks import MLPNetwork, SimpleMLPNetwork, DeepSetMLPNetwork
 from .misc import hard_update, gumbel_softmax, onehot_from_logits
 from .noise import OUNoise
 
@@ -14,7 +14,7 @@ class DDPGAgent(object):
     critic, exploration noise)
     """
     def __init__(self, num_in_pol, num_out_pol, num_in_critic, hidden_dim=64,
-                 lr=0.01, discrete_action=True):
+                 lr=0.01, discrete_action=True, deepset=False):
         """
         Inputs:
             num_in_pol (int): number of dimensions for policy input
@@ -25,14 +25,24 @@ class DDPGAgent(object):
                                  hidden_dim=hidden_dim,
                                  constrain_out=True,
                                  discrete_action=discrete_action)
-        self.critic = MLPNetwork(num_in_critic, 1,
+        if deepset:
+            self.critic = DeepSetMLPNetwork(num_in_critic, 1,
+                                 hidden_dim=hidden_dim,
+                                 constrain_out=False)
+        else:
+            self.critic = MLPNetwork(num_in_critic, 1,
                                  hidden_dim=hidden_dim,
                                  constrain_out=False)
         self.target_policy = MLPNetwork(num_in_pol, num_out_pol,
                                         hidden_dim=hidden_dim,
                                         constrain_out=True,
                                         discrete_action=discrete_action)
-        self.target_critic = MLPNetwork(num_in_critic, 1,
+        if deepset:
+            self.target_critic = DeepSetMLPNetwork(num_in_critic, 1,
+                                        hidden_dim=hidden_dim,
+                                        constrain_out=False)
+        else:
+            self.target_critic = MLPNetwork(num_in_critic, 1,
                                         hidden_dim=hidden_dim,
                                         constrain_out=False)
         hard_update(self.target_policy, self.policy)
