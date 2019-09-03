@@ -303,13 +303,19 @@ class MADDPG(object):
             all_critic_logits = []
             distilled_critic_logits = []
             for p, crit in enumerate(self.critics):
-                vf_in = torch.cat((*obs, *acs), dim=1)
+                if self.deep:
+                    vf_in = torch.cat((torch.stack(obs), torch.stack(acs)), dim=2)
+                else:
+                    vf_in = torch.cat((*obs, *acs), dim=1)
 
                 dist_vf_in = list(zip(obs, acs))
                 np.random.shuffle(dist_vf_in)
                 dist_obs, dist_acs = zip(*dist_vf_in)
 
-                vf_in_distilled = torch.cat((*dist_obs, *dist_acs), dim=1)
+                if self.deep:
+                    vf_in_distilled = torch.cat((torch.stack(dist_obs), torch.stack(dist_acs)), dim=2)
+                else:
+                    vf_in_distilled = torch.cat((*dist_obs, *dist_acs), dim=1)
                 all_critic_logits.append(crit(vf_in))
                 distilled_critic_logits.append(
                     self.distilled_agent.critic(vf_in_distilled))
