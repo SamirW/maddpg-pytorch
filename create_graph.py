@@ -10,10 +10,11 @@ plot.rcParams.update(params)
 
 ENV = "simple_spread_5"
 RUN = "deepset"
-BASE_DIR = "/home/samir/dev/acl/maddpg-pytorch-sharing/models/" + ENV + "/" + RUN + "/"
-FIGURE_TITLE = "5-Agent Simple Spread (Relative Obs)"
+# BASE_DIR = "/home/samir/dev/acl/maddpg-pytorch-sharing/models/" + ENV + "/" + RUN + "/"
+BASE_DIR = "/home/samir/dev/acl/maddpg-pytorch-sharing/figures/deepset/logs/"
+FIGURE_TITLE = "Simple Spread (Relative Obs)"
 FIGURE_DIR = "figures/deepset/"
-FIGURE_SAVE_NAME = "five-agent-deepset.png"
+FIGURE_SAVE_NAME = "baseline-deepset.png"
 
 CONV_SIZE = 100
 NUM_SEEDS = 11
@@ -154,54 +155,61 @@ if __name__ == "__main__":
         datas.append(distill_pass_critic)
         datas_x.append(distill_pass_critic_ep)
         legends.append(r'Actor-Only Distill')
-    """
-        Baseline
-    """
-    if True:
-        distill_pass_critic = []
-        distill_pass_critic_ep = []
-
-        for i in range(NUM_SEEDS):
-            path = \
-                BASE_DIR + \
-                "env::{}_seed::{}_comment::baseline_log".format(ENV, i+1)
+    
+    test_labels = ['2-agent', '3-agent', '4-agent', '5-agent']
+    envs = ['simple_spread', 'simple_spread_3', 'simple_spread_4', 'simple_spread_5']
+    for env, label in zip(envs, test_labels):
         
-            try:
-                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
-                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+        """
+            Baseline
+        """
+        if True:
+            print(env)
+            print(label)
+            distill_pass_critic = []
+            distill_pass_critic_ep = []
 
-                distill_pass_critic.append(data)
-                distill_pass_critic_ep.append(data_x)
-            except:
-                continue
+            for i in range(NUM_SEEDS):
+                path = \
+                    BASE_DIR + \
+                    "env::{}_seed::{}_comment::baseline_log".format(env, i+1)
+            
+                try:
+                    data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+                    data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
-        datas.append(distill_pass_critic)
-        datas_x.append(distill_pass_critic_ep)
-        legends.append(r'MADDPG')
-    """
-        Deepset
-    """
-    if True:
-        distill_pass_critic = []
-        distill_pass_critic_ep = []
+                    distill_pass_critic.append(data)
+                    distill_pass_critic_ep.append(data_x)
+                except:
+                    continue
 
-        for i in range(NUM_SEEDS):
-            path = \
-                BASE_DIR + \
-                "env::{}_seed::{}_comment::deepset_log".format(ENV, i+1)
-        
-            try:
-                data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
-                data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
+            datas.append(distill_pass_critic)
+            datas_x.append(distill_pass_critic_ep)
+            legends.append('{} MADDPG'.format(label))
+        """
+            Deepset
+        """
+        if True:
+            distill_pass_critic = []
+            distill_pass_critic_ep = []
 
-                distill_pass_critic.append(data)
-                distill_pass_critic_ep.append(data_x)
-            except:
-                continue
+            for i in range(NUM_SEEDS):
+                path = \
+                    BASE_DIR + \
+                    "env::{}_seed::{}_comment::deepset_log".format(env, i+1)
+            
+                try:
+                    data = moving_average(read_key_from_log(path, key="Train episode reward", index=6), CONV_SIZE)
+                    data_x = moving_average(read_key_from_log(path, key="Train episode reward", index=-1), CONV_SIZE)
 
-        datas.append(distill_pass_critic)
-        datas_x.append(distill_pass_critic_ep)
-        legends.append(r'MADDPG w/ Deepsets')
+                    distill_pass_critic.append(data)
+                    distill_pass_critic_ep.append(data_x)
+                except:
+                    continue
+
+            datas.append(distill_pass_critic)
+            datas_x.append(distill_pass_critic_ep)
+            legends.append('{} MADDPG w/ Deepsets'.format(label))
 
     """
         Plot data
@@ -211,8 +219,8 @@ if __name__ == "__main__":
     for i_data, data in enumerate(datas):
         x = datas_x[i_data][0]
 
-        x = x[:30000]
-        data = [d[:30000] for d in data]
+        x = x[:20000]
+        data = [d[:20000] for d in data]
 
         mean = np.mean(data, axis=0)
         std = np.std(data, axis=0)
